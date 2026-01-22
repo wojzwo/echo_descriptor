@@ -1,0 +1,13 @@
+# UI-only settings: widoczność + kolejność
+# Jeśli plik nie istnieje -> UI pokaże wszystkie parametry w kolejności z registry.
+
+params:
+  - name: LVEDD
+    enabled: true
+    order: 10
+  - name: ROOT
+    enabled: true
+    order: 20
+  - name: LVSI
+    enabled: false
+    order: 999
