@@ -4,7 +4,7 @@ params:
   order: 10
 - name: ANN
   enabled: true
-  order: 20
+  order: 6
 - name: ARCHDIST
   enabled: true
   order: 1

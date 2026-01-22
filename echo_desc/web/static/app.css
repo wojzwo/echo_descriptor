@@ -1,55 +1,161 @@
-/* app.css */
+/* Base */
+* { box-sizing: border-box; }
+body { font-family: system-ui, sans-serif; margin: 24px; max-width: 1100px; }
+h1, h2, h3, h4 { margin: 0 0 10px 0; }
+label { display: inline-block; margin-bottom: 6px; }
 
-body {
-  font-family: system-ui, sans-serif;
-  margin: 24px;
-  max-width: 1100px;
-}
+/* Header */
+.pageHeader { margin-bottom: 10px; }
 
+/* Tabs */
 .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
-.tabbtn { padding: 10px 12px; border: 1px solid #ddd; background: #fff; border-radius: 10px; cursor: pointer; }
+.tabbtn {
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  background: #fff;
+  border-radius: 10px;
+  cursor: pointer;
+}
 .tabbtn.active { border-color: #888; font-weight: 600; }
-.panel { display: none; padding: 12px; border: 1px solid #eee; border-radius: 14px; background: #fafafa; }
+.panel {
+  display: none;
+  padding: 12px;
+  border: 1px solid #eee;
+  border-radius: 14px;
+  background: #fafafa;
+}
 .panel.active { display: block; }
 
-.grid { display: grid; grid-template-columns: 260px 1fr; gap: 10px; }
-input, select { width: 100%; padding: 8px; border-radius: 10px; border: 1px solid #ddd; }
+/* Layout */
 .section { margin-top: 14px; }
+.grid { display: grid; grid-template-columns: 260px 1fr; gap: 10px; }
+.twoCols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 
-button { padding: 10px 14px; border-radius: 12px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
-pre { white-space: pre-wrap; background: #f5f5f5; padding: 16px; border-radius: 14px; border: 1px solid #eee; }
+.card {
+  border: 1px solid #eee;
+  background: #fff;
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.cardTitle { margin: 0 0 10px 0; }
+
+.muted { color: #666; font-size: 0.9rem; }
 .err { color: #b00020; margin: 10px 0; }
 
-.twoCols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.card { border: 1px solid #eee; background: #fff; border-radius: 14px; padding: 12px; }
-.muted { color: #666; font-size: 0.9rem; }
+.pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid #e5e5e5;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 12px;
+  color: #666;
+}
 
-.checklist { display: grid; grid-template-columns: 1fr; gap: 6px; margin-top: 8px; }
+button {
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid #ccc;
+  background: #fff;
+  cursor: pointer;
+}
+
+.primaryBtn {
+  border-color: #bbb;
+  font-weight: 600;
+}
+
+.inlineBtns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+input, select {
+  width: 100%;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+}
+
+pre {
+  white-space: pre-wrap;
+  background: #f5f5f5;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid #eee;
+}
+
+/* Template */
+.templateHeader { display:flex; justify-content: space-between; align-items: center; }
+.checklist { display: grid; grid-template-columns: 1fr; gap: 6px; margin-top: 10px; }
 .checkitem { display: flex; align-items: center; gap: 10px; }
 .checkitem input { width: auto; }
 
-/* Params UI */
-.paramRow { display: grid; grid-template-columns: 260px 1fr; gap: 10px; align-items: center; padding: 6px 0; }
-.paramLabel { display: flex; flex-direction: column; gap: 2px; }
-.paramDesc { color:#666; font-size: 0.85rem; }
-details { border: 1px dashed #ddd; border-radius: 12px; padding: 10px 12px; background: #fff; }
+/* Details */
+details {
+  border: 1px dashed #ddd;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #fff;
+}
 summary { cursor: pointer; font-weight: 600; }
 
-/* Settings UI */
+/* ===========================
+   PARAMS (NEW LAYOUT)
+   - kafelki w gridzie
+   - label + opis nad inputem
+   =========================== */
+
+.paramsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* 2 kolumny, bez kombinacji */
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.paramCard {
+  border: 1px solid #eee;
+  background: #fff;
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.paramKey {
+  font-weight: 700;
+  margin: 0 0 4px 0;
+}
+
+.paramDesc {
+  color: #666;
+  font-size: 0.85rem;
+  margin: 0 0 10px 0;
+  line-height: 1.25;
+}
+
+/* ===========================
+   Settings table
+   =========================== */
+
+.tableWrap { overflow: auto; }
+
 .settingsTable {
   width: 100%;
   border-collapse: collapse;
   background: #fff;
   border: 1px solid #eee;
-  /* border-radius/overflow na table bywa “meh” w przeglądarkach, więc:
-     - zostawiamy (nie szkodzi)
-     - docelowo: wrapper w HTML (opcja B) załatwi temat w 100% */
   border-radius: 14px;
   overflow: hidden;
 }
-.settingsTable th, .settingsTable td { border-bottom: 1px solid #f0f0f0; padding: 8px 10px; vertical-align: top; }
+
+.settingsTable th, .settingsTable td {
+  border-bottom: 1px solid #f0f0f0;
+  padding: 8px 10px;
+  vertical-align: top;
+}
+
 .settingsTable th { text-align: left; background: #fafafa; }
-.settingsControls { display:flex; gap:8px; flex-wrap: wrap; }
+.settingsControls { display: flex; gap: 8px; flex-wrap: wrap; }
+
 .orderInput { width: 90px; }
 
 textarea {
@@ -60,16 +166,4 @@ textarea {
   padding: 10px;
   border-radius: 12px;
   border: 1px solid #ddd;
-}
-
-.pill { display:inline-block; padding:2px 8px; border:1px solid #e5e5e5; border-radius:999px; background:#fff; font-size:12px; color:#666; }
-
-.templateHeader { display:flex; justify-content: space-between; align-items: center; }
-
-/* Responsywność (żeby nie było poziomego scrolla na mobile) */
-@media (max-width: 720px) {
-  body { margin: 14px; }
-  .twoCols { grid-template-columns: 1fr; }
-  .grid { grid-template-columns: 1fr; }
-  .paramRow { grid-template-columns: 1fr; }
 }

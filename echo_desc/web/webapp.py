@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 from pathlib import Path
 
-from fastapi import FastAPI, Request, Body
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
 
-from ..config.io import ensure_bootstrap_tree, load_yaml, save_yaml, ConfigPaths
+from ..config.io import ensure_bootstrap_tree, load_yaml, save_yaml
 from ..model import PatientInputs, EchoValues
 from ..parameters.registry_pettersen_detroit import build_registry_pettersen_detroit
 from ..reports.backend import generate_report
 from ..reports.report_templates import get_report_templates, filter_template
+
 
 app = FastAPI(title="Echo Descriptor")
 
@@ -28,34 +28,17 @@ REGISTRY = None
 TEMPLATES = None
 
 
-# -----------------------------
-# UI config (repo-local / env override via ConfigPaths)
-# -----------------------------
+def repo_root() -> Path:
+    # echo_desc/web/webapp.py -> repo_root
+    return Path(__file__).resolve().parents[2]
+
+
+def active_config_dir() -> Path:
+    return (repo_root() / "config").resolve()
+
+
 def param_ui_path() -> Path:
-    # respects ECHO_DESC_CONFIG_DIR override + repo-local default
-    return ConfigPaths.resolve().file("web/parameters_ui.yaml")
-
-
-def _as_bool(x: Any, default: bool = True) -> bool:
-    if x is None:
-        return default
-    if isinstance(x, bool):
-        return x
-    if isinstance(x, (int, float)):
-        return bool(x)
-    s = str(x).strip().lower()
-    if s in ("true", "1", "yes", "y", "on"):
-        return True
-    if s in ("false", "0", "no", "n", "off"):
-        return False
-    return default
-
-
-def _as_int(x: Any, default: int = 9999) -> int:
-    try:
-        return int(str(x).strip())
-    except Exception:
-        return default
+    return (active_config_dir() / "web" / "parameters_ui.yaml").resolve()
 
 
 def load_param_ui() -> Dict[str, Dict[str, Any]]:
@@ -63,7 +46,7 @@ def load_param_ui() -> Dict[str, Dict[str, Any]]:
     Returns mapping:
       { "LVEDD": {"enabled": bool, "order": int}, ... }
 
-    If missing file -> empty dict (means: show all, natural order).
+    If file missing/invalid -> empty dict (means defaults: show all + registry order).
     """
     p = param_ui_path()
     if not p.exists():
@@ -84,9 +67,15 @@ def load_param_ui() -> Dict[str, Dict[str, Any]]:
         name = str(item.get("name", "")).strip()
         if not name:
             continue
-        enabled = _as_bool(item.get("enabled", True), default=True)
-        order = _as_int(item.get("order", 9999), default=9999)
+
+        enabled = bool(item.get("enabled", True))
+        try:
+            order = int(item.get("order", 9999))
+        except Exception:
+            order = 9999
+
         out[name] = {"enabled": enabled, "order": order}
+
     return out
 
 
@@ -96,7 +85,13 @@ def build_param_items() -> List[Dict[str, Any]]:
     for name in REGISTRY.names():
         p = REGISTRY.get(name)
         desc = getattr(p, "description", None) if p is not None else None
-        items.append({"name": name, "label": name, "description": "" if desc is None else str(desc)})
+        items.append(
+            {
+                "name": name,
+                "label": name,
+                "description": "" if desc is None else str(desc),
+            }
+        )
     return items
 
 
@@ -105,12 +100,12 @@ def split_and_sort_params(
     ui: Dict[str, Dict[str, Any]],
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """
-    Returns (visible, hidden), both sorted by order then name.
-    Default if not in ui: enabled=True, order=registry order * 10.
+    Returns (visible, hidden), both sorted by (order, name).
+    Default if not in ui: enabled=True, order=(registry_position*10).
     """
-    default_order: Dict[str, int] = {}
-    for i, it in enumerate(param_items):
-        default_order[it["name"]] = (i + 1) * 10
+    default_order: Dict[str, int] = {
+        it["name"]: (i + 1) * 10 for i, it in enumerate(param_items)
+    }
 
     def key_fn(it: Dict[str, Any]) -> tuple:
         n = it["name"]
@@ -130,9 +125,6 @@ def split_and_sort_params(
     return visible, hidden
 
 
-# -----------------------------
-# App lifecycle
-# -----------------------------
 @app.on_event("startup")
 def _startup() -> None:
     global REGISTRY, TEMPLATES
@@ -141,7 +133,7 @@ def _startup() -> None:
     TEMPLATES = get_report_templates()
 
 
-def _safe_float(x: Any) -> float | None:
+def _safe_float(x: Any) -> Optional[float]:
     s = str(x).strip()
     if not s:
         return None
@@ -151,11 +143,18 @@ def _safe_float(x: Any) -> float | None:
         return None
 
 
-# -----------------------------
-# Routes
-# -----------------------------
-@app.get("/", response_class=HTMLResponse)
-def index(request: Request):
+def _render_index(
+    request: Request,
+    *,
+    active_tab: str,
+    selected_template_id: str,
+    selected_paragraph_ids: set[str],
+    weight_kg: Any,
+    height_cm: Any,
+    raw_vals: Dict[str, float],
+    report: str,
+    error: str,
+) -> HTMLResponse:
     assert REGISTRY is not None
     assert TEMPLATES is not None
 
@@ -163,27 +162,77 @@ def index(request: Request):
     all_items = build_param_items()
     params_visible, params_hidden = split_and_sort_params(all_items, ui)
 
-    default_template_id = next(iter(TEMPLATES.keys()))
-    default_paragraph_ids = [p.id for p in TEMPLATES[default_template_id].paragraphs]
-
     return templates.TemplateResponse(
         "index.html",
         {
             "request": request,
+            "active_tab": active_tab,
             "params_visible": params_visible,
             "params_hidden": params_hidden,
-            "param_items_all": all_items,  # Settings tab
-            "param_ui": ui,                # Settings tab values
+            "param_items_all": all_items,
+            "param_ui": ui,
             "templates_list": list(TEMPLATES.values()),
-            "selected_template_id": default_template_id,
-            "selected_paragraph_ids": set(default_paragraph_ids),
-            "weight_kg": "",
-            "height_cm": "",
-            "raw_vals": {},
-            "report": "",
-            "error": "",
+            "selected_template_id": selected_template_id,
+            "selected_paragraph_ids": selected_paragraph_ids,
+            "weight_kg": weight_kg,
+            "height_cm": height_cm,
+            "raw_vals": raw_vals,
+            "report": report,
+            "error": error,
         },
     )
+
+
+@app.get("/", response_class=HTMLResponse)
+def index(request: Request):
+    assert TEMPLATES is not None
+    tab = str(request.query_params.get("tab") or "params").strip().lower()
+    if tab not in {"params", "template", "settings"}:
+        tab = "params"
+
+    default_template_id = next(iter(TEMPLATES.keys()))
+    default_paragraph_ids = {p.id for p in TEMPLATES[default_template_id].paragraphs}
+
+    return _render_index(
+        request,
+        active_tab=tab,
+        selected_template_id=default_template_id,
+        selected_paragraph_ids=default_paragraph_ids,
+        weight_kg="",
+        height_cm="",
+        raw_vals={},
+        report="",
+        error="",
+    )
+
+
+@app.post("/settings/save")
+async def save_settings(request: Request):
+    """
+    Saves UI settings into ./config/web/parameters_ui.yaml (repo-local).
+    """
+    form = await request.form()
+
+    assert REGISTRY is not None
+    names = REGISTRY.names()
+
+    out_list: List[Dict[str, Any]] = []
+    for n in names:
+        enabled = (form.get(f"enabled__{n}") == "on")
+        order_raw = form.get(f"order__{n}")
+        try:
+            order = int(str(order_raw).strip())
+        except Exception:
+            order = 9999
+        out_list.append({"name": n, "enabled": enabled, "order": order})
+
+    doc = {"params": out_list}
+    p = param_ui_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    save_yaml(p, doc)
+
+    # wracamy na settings tab
+    return RedirectResponse(url="/?tab=settings", status_code=303)
 
 
 @app.post("/generate", response_class=HTMLResponse)
@@ -201,6 +250,7 @@ async def generate_one_page(request: Request):
         selected_template_id = next(iter(TEMPLATES.keys()))
 
     paragraph_ids: List[str] = list(form.getlist("paragraph_ids"))
+    selected_paragraph_ids = set(paragraph_ids)
 
     raw_vals: Dict[str, float] = {}
     for pname in REGISTRY.names():
@@ -227,70 +277,15 @@ async def generate_one_page(request: Request):
             template=chosen_template,
         )
 
-    # re-render with current UI config
-    ui = load_param_ui()
-    all_items = build_param_items()
-    params_visible, params_hidden = split_and_sort_params(all_items, ui)
-
-    return templates.TemplateResponse(
-        "index.html",
-        {
-            "request": request,
-            "params_visible": params_visible,
-            "params_hidden": params_hidden,
-            "param_items_all": all_items,
-            "param_ui": ui,
-            "templates_list": list(TEMPLATES.values()),
-            "selected_template_id": selected_template_id,
-            "selected_paragraph_ids": set(paragraph_ids),
-            "weight_kg": "" if weight_kg is None else weight_kg,
-            "height_cm": "" if height_cm is None else height_cm,
-            "raw_vals": raw_vals,
-            "report": report,
-            "error": error,
-        },
+    # po generacji zostajemy w tabie params (najbardziej praktyczne)
+    return _render_index(
+        request,
+        active_tab="params",
+        selected_template_id=selected_template_id,
+        selected_paragraph_ids=selected_paragraph_ids,
+        weight_kg="" if weight_kg is None else weight_kg,
+        height_cm="" if height_cm is None else height_cm,
+        raw_vals=raw_vals,
+        report=report,
+        error=error,
     )
-
-
-@app.post("/api/settings/save")
-def api_save_settings(payload: Dict[str, Any] = Body(...)):
-    """
-    payload:
-      { "params": [ {"name": "...", "enabled": true/false, "order": 10}, ... ] }
-
-    Normalizujemy zapis tak, żeby plik miał stabilną, pełną listę parametrów z registry.
-    """
-    assert REGISTRY is not None
-
-    params = payload.get("params")
-    if not isinstance(params, list):
-        return JSONResponse({"ok": False, "error": "Invalid payload: params must be a list"}, status_code=400)
-
-    # Build quick lookup from payload
-    in_map: Dict[str, Dict[str, Any]] = {}
-    for item in params:
-        if not isinstance(item, dict):
-            continue
-        name = str(item.get("name", "")).strip()
-        if not name:
-            continue
-        in_map[name] = {
-            "enabled": _as_bool(item.get("enabled", True), default=True),
-            "order": _as_int(item.get("order", 9999), default=9999),
-        }
-
-    # Normalize: one entry per registry param, in registry order (stable)
-    out_list: List[Dict[str, Any]] = []
-    for i, n in enumerate(REGISTRY.names()):
-        default_order = (i + 1) * 10
-        st = in_map.get(n, {})
-        enabled = _as_bool(st.get("enabled", True), default=True)
-        order = _as_int(st.get("order", default_order), default=default_order)
-        out_list.append({"name": n, "enabled": enabled, "order": order})
-
-    doc = {"params": out_list}
-    p = param_ui_path()
-    p.parent.mkdir(parents=True, exist_ok=True)
-    save_yaml(p, doc)
-
-    return {"ok": True, "path": str(p)}
