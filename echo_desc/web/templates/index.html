@@ -17,9 +17,17 @@
 
   <!-- Tabs -->
   <nav class="tabs section" aria-label="Nawigacja">
-    <button type="button" class="tabbtn active" data-tab="tab-params">Parametry</button>
-    <button type="button" class="tabbtn" data-tab="tab-template">Szablon</button>
-    <button type="button" class="tabbtn" data-tab="tab-settings">Settings</button>
+    <button type="button"
+            class="tabbtn {% if active_tab == 'params' %}active{% endif %}"
+            data-tab="tab-params">Parametry</button>
+
+    <button type="button"
+            class="tabbtn {% if active_tab == 'template' %}active{% endif %}"
+            data-tab="tab-template">Szablon</button>
+
+    <button type="button"
+            class="tabbtn {% if active_tab == 'settings' %}active{% endif %}"
+            data-tab="tab-settings">Settings</button>
   </nav>
 
   <!-- =========================
@@ -62,7 +70,7 @@
     </div>
 
     <!-- TAB: PARAMS -->
-    <section id="tab-params" class="panel active">
+    <section id="tab-params" class="panel {% if active_tab == 'params' %}active{% endif %}">
       <h3>Parametry</h3>
       <div class="muted">Puste pola = brak parametru. Widoczność/kolejność ustawiasz w Settings.</div>
 
@@ -70,7 +78,6 @@
         <div class="card">
           <h4 class="cardTitle">Widoczne</h4>
 
-          <!-- UWAGA: to jest GRID 2-kolumnowy "kafelków" -->
           <div class="paramsGrid" id="paramsVisible">
             {% for it in params_visible %}
               {% set pid = "param__" ~ it.name %}
@@ -135,7 +142,7 @@
     </section>
 
     <!-- TAB: TEMPLATE -->
-    <section id="tab-template" class="panel">
+    <section id="tab-template" class="panel {% if active_tab == 'template' %}active{% endif %}">
       <h3>Wybór akapitów do opisu</h3>
       <div class="muted">Zaznaczasz co ma wejść do finalnego opisu.</div>
 
@@ -155,7 +162,7 @@
               value="{{ par.id }}"
               {% if par.id in selected_paragraph_ids %}checked{% endif %}
             />
-            <span>{{ par.label or par.id }}</span>
+            <span>{{ par.label }}</span>
             <span class="muted">({{ par.id }})</span>
           </label>
           {% endfor %}
@@ -169,7 +176,6 @@
       {% endfor %}
 
       <div class="section">
-        <!-- submituje generateForm (jesteśmy w nim) -->
         <button type="submit" class="primaryBtn">Generuj</button>
       </div>
     </section>
@@ -178,7 +184,7 @@
   <!-- =========================
        FORM B: SETTINGS SAVE
        ========================= -->
-  <section id="tab-settings" class="panel">
+  <section id="tab-settings" class="panel {% if active_tab == 'settings' %}active{% endif %}">
     <h3>Settings: widoczność i kolejność parametrów</h3>
     <div class="muted">
       To jest ustawienie UI (webgui), nie “parametry norm”. Zapis idzie do repo:

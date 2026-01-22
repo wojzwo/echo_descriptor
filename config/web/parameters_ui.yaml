@@ -1,9 +1,9 @@
 params:
 - name: AAO
-  enabled: true
+  enabled: false
   order: 10
 - name: ANN
-  enabled: true
+  enabled: false
   order: 6
 - name: ARCHDIST
   enabled: true
@@ -16,88 +16,88 @@ params:
   order: 50
 - name: LAD
   enabled: true
-  order: 60
+  order: 2
 - name: LMCA
-  enabled: true
+  enabled: false
   order: 70
 - name: LPA
-  enabled: true
+  enabled: false
   order: 80
 - name: LVEDA
-  enabled: true
+  enabled: false
   order: 90
 - name: LVEDAEPI
-  enabled: true
+  enabled: false
   order: 100
 - name: LVEDD
-  enabled: true
+  enabled: false
   order: 10
 - name: LVEDL
-  enabled: true
+  enabled: false
   order: 120
 - name: LVEDLEPI
-  enabled: true
+  enabled: false
   order: 130
 - name: LVEDV
-  enabled: true
+  enabled: false
   order: 140
 - name: LVEDVEPI
-  enabled: true
+  enabled: false
   order: 150
 - name: LVM
-  enabled: true
+  enabled: false
   order: 160
 - name: LVMTV
-  enabled: true
+  enabled: false
   order: 170
 - name: LVPWT
-  enabled: true
+  enabled: false
   order: 180
 - name: LVSI
   enabled: false
   order: 999
 - name: LVST
-  enabled: true
+  enabled: false
   order: 200
 - name: LVTTD
-  enabled: true
+  enabled: false
   order: 210
 - name: MPA
-  enabled: true
+  enabled: false
   order: 220
 - name: MVA
-  enabled: true
+  enabled: false
   order: 230
 - name: MVAP
-  enabled: true
+  enabled: false
   order: 240
 - name: MVLAT
-  enabled: true
+  enabled: false
   order: 250
 - name: PVLAX
-  enabled: true
+  enabled: false
   order: 260
 - name: PVSAX
-  enabled: true
+  enabled: false
   order: 270
 - name: RCA
-  enabled: true
+  enabled: false
   order: 280
 - name: ROOT
-  enabled: true
+  enabled: false
   order: 20
 - name: RPA
-  enabled: true
+  enabled: false
   order: 300
 - name: STJ
-  enabled: true
+  enabled: false
   order: 310
 - name: TVA
-  enabled: true
+  enabled: false
   order: 320
 - name: TVAP
-  enabled: true
+  enabled: false
   order: 330
 - name: TVLAT
-  enabled: true
+  enabled: false
   order: 340

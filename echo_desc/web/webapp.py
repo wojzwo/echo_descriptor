@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, Any, List, Tuple, Optional
+from typing import Dict, Any, List, Tuple, Optional, Set
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -12,8 +12,12 @@ from ..config.io import ensure_bootstrap_tree, load_yaml, save_yaml
 from ..model import PatientInputs, EchoValues
 from ..parameters.registry_pettersen_detroit import build_registry_pettersen_detroit
 from ..reports.backend import generate_report
-from ..reports.report_templates import get_report_templates, filter_template
-
+from ..reports.report_templates import (
+    get_report_templates,
+    filter_report,
+    ParagraphTemplate,
+    ReportTemplate,
+)
 
 app = FastAPI(title="Echo Descriptor")
 
@@ -24,12 +28,17 @@ STATIC_DIR = BASE_DIR / "static"
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
+# globals initialized on startup
 REGISTRY = None
-TEMPLATES = None
+PARAGRAPHS: Dict[str, ParagraphTemplate] | None = None
+REPORTS: Dict[str, ReportTemplate] | None = None
 
 
+# ----------------------------
+# Config paths (repo-local)
+# ----------------------------
 def repo_root() -> Path:
-    # echo_desc/web/webapp.py -> repo_root
+    # echo_desc/web/webapp.py -> <repo_root>/echo_desc/web/webapp.py
     return Path(__file__).resolve().parents[2]
 
 
@@ -41,6 +50,9 @@ def param_ui_path() -> Path:
     return (active_config_dir() / "web" / "parameters_ui.yaml").resolve()
 
 
+# ----------------------------
+# Param UI (visibility/order)
+# ----------------------------
 def load_param_ui() -> Dict[str, Dict[str, Any]]:
     """
     Returns mapping:
@@ -125,12 +137,39 @@ def split_and_sort_params(
     return visible, hidden
 
 
+# ----------------------------
+# Templates (reports + paragraphs)
+# ----------------------------
+def build_templates_list_for_ui(
+    paragraphs_by_id: Dict[str, ParagraphTemplate],
+    reports_by_id: Dict[str, ReportTemplate],
+) -> List[Dict[str, Any]]:
+    """
+    Jinja-friendly structure:
+      [
+        {id, title, paragraphs: [{id,label,text}, ...] }  # order preserved from report.paragraph_ids
+      ]
+    """
+    out: List[Dict[str, Any]] = []
+    for r in reports_by_id.values():
+        resolved: List[Dict[str, Any]] = []
+        for pid in r.paragraph_ids:
+            p = paragraphs_by_id.get(pid)
+            if p is None:
+                # shouldn't happen because get_report_templates() validates, but keep UI robust
+                resolved.append({"id": pid, "label": pid, "text": f"###BRAK PARAGRAFU:{pid}###"})
+            else:
+                resolved.append({"id": p.id, "label": (p.label or p.id), "text": p.text})
+        out.append({"id": r.id, "title": r.title, "paragraphs": resolved})
+    return out
+
+
 @app.on_event("startup")
 def _startup() -> None:
-    global REGISTRY, TEMPLATES
+    global REGISTRY, PARAGRAPHS, REPORTS
     ensure_bootstrap_tree()
     REGISTRY = build_registry_pettersen_detroit()
-    TEMPLATES = get_report_templates()
+    PARAGRAPHS, REPORTS = get_report_templates()
 
 
 def _safe_float(x: Any) -> Optional[float]:
@@ -143,12 +182,17 @@ def _safe_float(x: Any) -> Optional[float]:
         return None
 
 
+def _normalize_tab(x: str) -> str:
+    t = (x or "").strip().lower()
+    return t if t in {"params", "template", "settings"} else "params"
+
+
 def _render_index(
     request: Request,
     *,
     active_tab: str,
     selected_template_id: str,
-    selected_paragraph_ids: set[str],
+    selected_paragraph_ids: Set[str],
     weight_kg: Any,
     height_cm: Any,
     raw_vals: Dict[str, float],
@@ -156,11 +200,20 @@ def _render_index(
     error: str,
 ) -> HTMLResponse:
     assert REGISTRY is not None
-    assert TEMPLATES is not None
+    assert PARAGRAPHS is not None
+    assert REPORTS is not None
 
+    # param UI (visibility/order)
     ui = load_param_ui()
     all_items = build_param_items()
     params_visible, params_hidden = split_and_sort_params(all_items, ui)
+
+    # templates for UI
+    templates_list = build_templates_list_for_ui(PARAGRAPHS, REPORTS)
+
+    # sanity: if selected_template_id vanished, pick first
+    if selected_template_id not in REPORTS and REPORTS:
+        selected_template_id = next(iter(REPORTS.keys()))
 
     return templates.TemplateResponse(
         "index.html",
@@ -171,7 +224,7 @@ def _render_index(
             "params_hidden": params_hidden,
             "param_items_all": all_items,
             "param_ui": ui,
-            "templates_list": list(TEMPLATES.values()),
+            "templates_list": templates_list,
             "selected_template_id": selected_template_id,
             "selected_paragraph_ids": selected_paragraph_ids,
             "weight_kg": weight_kg,
@@ -185,13 +238,14 @@ def _render_index(
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
-    assert TEMPLATES is not None
-    tab = str(request.query_params.get("tab") or "params").strip().lower()
-    if tab not in {"params", "template", "settings"}:
-        tab = "params"
+    assert PARAGRAPHS is not None
+    assert REPORTS is not None
 
-    default_template_id = next(iter(TEMPLATES.keys()))
-    default_paragraph_ids = {p.id for p in TEMPLATES[default_template_id].paragraphs}
+    tab = _normalize_tab(str(request.query_params.get("tab") or "params"))
+
+    default_template_id = next(iter(REPORTS.keys()))
+    default_report = REPORTS[default_template_id]
+    default_paragraph_ids = set(default_report.paragraph_ids)
 
     return _render_index(
         request,
@@ -231,14 +285,14 @@ async def save_settings(request: Request):
     p.parent.mkdir(parents=True, exist_ok=True)
     save_yaml(p, doc)
 
-    # wracamy na settings tab
     return RedirectResponse(url="/?tab=settings", status_code=303)
 
 
 @app.post("/generate", response_class=HTMLResponse)
 async def generate_one_page(request: Request):
     assert REGISTRY is not None
-    assert TEMPLATES is not None
+    assert PARAGRAPHS is not None
+    assert REPORTS is not None
 
     form = await request.form()
 
@@ -246,8 +300,8 @@ async def generate_one_page(request: Request):
     height_cm = _safe_float(form.get("height_cm"))
 
     selected_template_id = str(form.get("template_id") or "").strip()
-    if not selected_template_id or selected_template_id not in TEMPLATES:
-        selected_template_id = next(iter(TEMPLATES.keys()))
+    if not selected_template_id or selected_template_id not in REPORTS:
+        selected_template_id = next(iter(REPORTS.keys()))
 
     paragraph_ids: List[str] = list(form.getlist("paragraph_ids"))
     selected_paragraph_ids = set(paragraph_ids)
@@ -267,17 +321,17 @@ async def generate_one_page(request: Request):
         patient = PatientInputs(weight_kg=weight_kg, height_cm=height_cm)
         raw = EchoValues(values=raw_vals)
 
-        base_template = TEMPLATES[selected_template_id]
-        chosen_template = filter_template(base_template, paragraph_ids)
+        base_report = REPORTS[selected_template_id]
+        chosen_report = filter_report(base_report, paragraph_ids)
 
         report = generate_report(
             patient=patient,
             raw=raw,
             registry=REGISTRY,
-            template=chosen_template,
+            template=chosen_report,
+            paragraphs_by_id=PARAGRAPHS,
         )
 
-    # po generacji zostajemy w tabie params (najbardziej praktyczne)
     return _render_index(
         request,
         active_tab="params",

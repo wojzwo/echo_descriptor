@@ -1,6 +1,12 @@
 /* Base */
 * { box-sizing: border-box; }
-body { font-family: system-ui, sans-serif; margin: 24px; max-width: 1100px; }
+body {
+  font-family: system-ui, sans-serif;
+  margin: 24px auto;           /* centrowanie na dużych ekranach */
+  max-width: 1100px;
+  line-height: 1.35;
+}
+
 h1, h2, h3, h4 { margin: 0 0 10px 0; }
 label { display: inline-block; margin-bottom: 6px; }
 
@@ -17,6 +23,7 @@ label { display: inline-block; margin-bottom: 6px; }
   cursor: pointer;
 }
 .tabbtn.active { border-color: #888; font-weight: 600; }
+
 .panel {
   display: none;
   padding: 12px;
@@ -85,9 +92,15 @@ pre {
 
 /* Template */
 .templateHeader { display:flex; justify-content: space-between; align-items: center; }
-.checklist { display: grid; grid-template-columns: 1fr; gap: 6px; margin-top: 10px; }
-.checkitem { display: flex; align-items: center; gap: 10px; }
-.checkitem input { width: auto; }
+.checklist { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 10px; }
+
+.checkitem {
+  display: flex;
+  align-items: flex-start;     /* ważne przy dłuższych labelach */
+  gap: 10px;
+  line-height: 1.25;
+}
+.checkitem input { width: auto; margin-top: 2px; }
 
 /* Details */
 details {
@@ -106,7 +119,7 @@ summary { cursor: pointer; font-weight: 600; }
 
 .paramsGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr; /* 2 kolumny, bez kombinacji */
+  grid-template-columns: 1fr 1fr; /* 2 kolumny */
   gap: 14px;
   margin-top: 10px;
 }
@@ -118,17 +131,19 @@ summary { cursor: pointer; font-weight: 600; }
   padding: 12px;
   display: flex;
   flex-direction: column;
+  gap: 8px;                  /* stabilniej niż marginy */
+  min-width: 0;              /* ważne: grid overflow fix */
 }
 
 .paramKey {
   font-weight: 700;
-  margin: 0 0 4px 0;
+  margin: 0;
 }
 
 .paramDesc {
   color: #666;
   font-size: 0.85rem;
-  margin: 0 0 10px 0;
+  margin: 0;
   line-height: 1.25;
 }
 
@@ -152,6 +167,7 @@ summary { cursor: pointer; font-weight: 600; }
   padding: 8px 10px;
   vertical-align: top;
 }
+.settingsTable tbody tr:last-child td { border-bottom: 0; }
 
 .settingsTable th { text-align: left; background: #fafafa; }
 .settingsControls { display: flex; gap: 8px; flex-wrap: wrap; }
