@@ -3,48 +3,185 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Echo Z-score</title>
+  <title>Echo Descriptor</title>
   <style>
-    body { font-family: system-ui, sans-serif; margin: 24px; }
-    .grid { display: grid; grid-template-columns: 260px 1fr; gap: 10px; max-width: 900px; }
-    input { width: 100%; padding: 8px; }
+    body { font-family: system-ui, sans-serif; margin: 24px; max-width: 1100px; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+    .tabbtn { padding: 10px 12px; border: 1px solid #ddd; background: #fff; border-radius: 10px; cursor: pointer; }
+    .tabbtn.active { border-color: #888; font-weight: 600; }
+    .panel { display: none; padding: 12px; border: 1px solid #eee; border-radius: 14px; background: #fafafa; }
+    .panel.active { display: block; }
+
+    .grid { display: grid; grid-template-columns: 260px 1fr; gap: 10px; }
+    input, select { width: 100%; padding: 8px; border-radius: 10px; border: 1px solid #ddd; }
     .row { display: contents; }
-    .section { margin-top: 18px; }
-    button { padding: 10px 14px; }
-    small { color: #666; }
+    .section { margin-top: 14px; }
+
+    button { padding: 10px 14px; border-radius: 12px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
+    pre { white-space: pre-wrap; background: #f5f5f5; padding: 16px; border-radius: 14px; border: 1px solid #eee; }
+    .err { color: #b00020; margin: 10px 0; }
+
+    .twoCols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .card { border: 1px solid #eee; background: #fff; border-radius: 14px; padding: 12px; }
+    .muted { color: #666; font-size: 0.9rem; }
+
+    .checklist { display: grid; grid-template-columns: 1fr; gap: 6px; margin-top: 8px; }
+    .checkitem { display: flex; align-items: center; gap: 10px; }
+    .checkitem input { width: auto; }
   </style>
 </head>
 <body>
-  <h1>Echo Z-score</h1>
-  <p><small>Wpisz masę/wzrost, potem parametry. Puste pola = brak parametru.</small></p>
+  <h1>Echo Descriptor</h1>
+  <div class="muted">Tab 1: wpisujesz dane i parametry. Tab 2: wybierasz templatkę i akapity. Na dole generuje się opis.</div>
 
-  <form method="post" action="/generate_async">
-    <div class="grid">
-      <div class="row">
-        <label>Masa [kg]</label>
-        <input name="weight_kg" type="number" step="0.01" required />
-      </div>
-      <div class="row">
-        <label>Wzrost [cm]</label>
-        <input name="height_cm" type="number" step="0.1" required />
-      </div>
-    </div>
-
-    <div class="section">
-      <h2>Parametry (klucze jak w registry)</h2>
-      <div class="grid">
-        {% for p in param_names %}
-        <div class="row">
-          <label>{{ p }}</label>
-          <input name="{{ p }}" type="number" step="0.0001" />
+  <form method="post" action="/generate">
+    <div class="twoCols section">
+      <div class="card">
+        <h3>Dane pacjenta</h3>
+        <div class="grid">
+          <div class="row">
+            <label>Masa [kg]</label>
+            <input name="weight_kg" type="number" step="0.01" required value="{{ weight_kg }}" />
+          </div>
+          <div class="row">
+            <label>Wzrost [cm]</label>
+            <input name="height_cm" type="number" step="0.1" required value="{{ height_cm }}" />
+          </div>
         </div>
-        {% endfor %}
+      </div>
+
+      <div class="card">
+        <h3>Szablon</h3>
+        <div class="grid">
+          <div class="row">
+            <label>Wybierz templatkę</label>
+            <select name="template_id" id="templateSelect">
+              {% for t in templates_list %}
+                <option value="{{ t.id }}" {% if t.id == selected_template_id %}selected{% endif %}>
+                  {{ t.title }} ({{ t.id }})
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="muted" style="margin-top:8px;">
+          Checklistę akapitów ustawiasz w tabie “Szablon”.
+        </div>
       </div>
     </div>
 
-    <div class="section">
-      <button type="submit">Generuj opis</button>
+    <div class="tabs section">
+      <button type="button" class="tabbtn active" data-tab="tab-params">Parametry</button>
+      <button type="button" class="tabbtn" data-tab="tab-template">Szablon</button>
     </div>
+
+    <!-- TAB 1: PARAMETRY -->
+    <div id="tab-params" class="panel active">
+      <h3>Parametry (klucze jak w registry)</h3>
+      <div class="muted">Puste pola = brak parametru.</div>
+
+      <div class="section">
+        <div class="grid">
+          {% for p in param_names %}
+          <div class="row">
+            <label>{{ p }}</label>
+            <input
+              name="{{ p }}"
+              type="number"
+              step="0.0001"
+              value="{{ raw_vals.get(p, '') }}"
+            />
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: SZABLON -->
+    <div id="tab-template" class="panel">
+      <h3>Wybór akapitów do opisu</h3>
+      <div class="muted">Zaznaczasz co ma wejść do finalnego opisu.</div>
+
+      {% for t in templates_list %}
+      <div class="card section templateBlock" data-template-id="{{ t.id }}" style="display:none;">
+        <div style="display:flex; justify-content: space-between; align-items: center;">
+          <strong>{{ t.title }}</strong>
+          <span class="muted">{{ t.id }}</span>
+        </div>
+
+        <div class="checklist">
+          {% for par in t.paragraphs %}
+          <label class="checkitem">
+            <input
+              type="checkbox"
+              name="paragraph_ids"
+              value="{{ par.id }}"
+              {% if par.id in selected_paragraph_ids %}checked{% endif %}
+            />
+            <span>{{ par.label or par.id }}</span>
+            <span class="muted">({{ par.id }})</span>
+          </label>
+          {% endfor %}
+        </div>
+
+        <div style="margin-top:10px; display:flex; gap:8px;">
+          <button type="button" onclick="toggleAll(true)">Zaznacz wszystko</button>
+          <button type="button" onclick="toggleAll(false)">Odznacz wszystko</button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="section">
+      <button type="submit">Generuj</button>
+    </div>
+
+    {% if error %}
+      <div class="err">{{ error }}</div>
+    {% endif %}
+
+    {% if report %}
+      <h2>Wynik</h2>
+      <pre>{{ report }}</pre>
+    {% endif %}
   </form>
+
+  <script>
+    // Tabs
+    const btns = document.querySelectorAll(".tabbtn");
+    const panels = document.querySelectorAll(".panel");
+
+    btns.forEach(b => {
+      b.addEventListener("click", () => {
+        btns.forEach(x => x.classList.remove("active"));
+        panels.forEach(p => p.classList.remove("active"));
+        b.classList.add("active");
+        document.getElementById(b.dataset.tab).classList.add("active");
+      });
+    });
+
+    // Template-specific checklist display
+    function showTemplateBlock() {
+      const sel = document.getElementById("templateSelect");
+      const tid = sel.value;
+      document.querySelectorAll(".templateBlock").forEach(el => {
+        el.style.display = (el.dataset.templateId === tid) ? "block" : "none";
+      });
+    }
+    document.getElementById("templateSelect").addEventListener("change", showTemplateBlock);
+
+    // Toggle all checkboxes inside visible template block
+    function toggleAll(on) {
+      const visible = Array.from(document.querySelectorAll(".templateBlock"))
+        .find(el => el.style.display === "block");
+      if (!visible) return;
+      visible.querySelectorAll('input[type="checkbox"][name="paragraph_ids"]').forEach(cb => {
+        cb.checked = on;
+      });
+    }
+
+    // initial
+    showTemplateBlock();
+  </script>
 </body>
 </html>

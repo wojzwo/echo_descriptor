@@ -1,7 +1,7 @@
 # echo_desc/web/webapp.py
 from __future__ import annotations
 
-from typing import Dict
+from typing import Dict, Any, List
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -10,26 +10,90 @@ from fastapi.templating import Jinja2Templates
 
 from ..model import PatientInputs, EchoValues
 from ..parameters.registry_pettersen_detroit import build_registry_pettersen_detroit
-from ..reports.report_templates import build_report_template_default
 from ..reports.backend import generate_report
+from ..reports.report_templates import get_report_templates, filter_template
 
-app = FastAPI(title="Echo Z-score")
+app = FastAPI(title="Echo Descriptor")
 
-BASE_DIR = Path(__file__).resolve().parent              # .../echo_desc
-TEMPLATES_DIR = BASE_DIR / "templates"                 # .../echo_desc/templates
+BASE_DIR = Path(__file__).resolve().parent
+TEMPLATES_DIR = BASE_DIR / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 REGISTRY = build_registry_pettersen_detroit()
-REPORT_TEMPLATE = build_report_template_default()
+TEMPLATES = get_report_templates()
+
+
+def _safe_float(x: Any) -> float | None:
+    s = str(x).strip()
+    if not s:
+        return None
+    try:
+        return float(s)
+    except Exception:
+        return None
 
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
-    # szybki sanity: jak templates dir nie istnieje, zwróć czytelny komunikat
-    if not TEMPLATES_DIR.exists():
-        return HTMLResponse(
-            f"<h1>Templates dir not found</h1><pre>{TEMPLATES_DIR}</pre>",
-            status_code=500,
+    # defaulty
+    default_template_id = next(iter(TEMPLATES.keys()))
+    default_paragraph_ids = [p.id for p in TEMPLATES[default_template_id].paragraphs]
+
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "param_names": REGISTRY.names(),
+            "templates_list": list(TEMPLATES.values()),
+            "selected_template_id": default_template_id,
+            "selected_paragraph_ids": set(default_paragraph_ids),
+
+            "weight_kg": "",
+            "height_cm": "",
+            "raw_vals": {},
+
+            "report": "",
+            "error": "",
+        },
+    )
+
+
+@app.post("/generate", response_class=HTMLResponse)
+async def generate_one_page(request: Request):
+    form = await request.form()
+
+    weight_kg = _safe_float(form.get("weight_kg"))
+    height_cm = _safe_float(form.get("height_cm"))
+
+    selected_template_id = str(form.get("template_id") or "").strip()
+    if not selected_template_id or selected_template_id not in TEMPLATES:
+        selected_template_id = next(iter(TEMPLATES.keys()))
+
+    paragraph_ids: List[str] = list(form.getlist("paragraph_ids"))
+
+    raw_vals: Dict[str, float] = {}
+    for pname in REGISTRY.names():
+        v = _safe_float(form.get(pname))
+        if v is not None:
+            raw_vals[pname] = v
+
+    report = ""
+    error = ""
+
+    if weight_kg is None or height_cm is None:
+        error = "Nieprawidłowa masa lub wzrost."
+    else:
+        patient = PatientInputs(weight_kg=weight_kg, height_cm=height_cm)
+        raw = EchoValues(values=raw_vals)
+
+        base_template = TEMPLATES[selected_template_id]
+        chosen_template = filter_template(base_template, paragraph_ids)
+
+        report = generate_report(
+            patient=patient,
+            raw=raw,
+            registry=REGISTRY,
+            template=chosen_template,
         )
 
     return templates.TemplateResponse(
@@ -37,40 +101,15 @@ def index(request: Request):
         {
             "request": request,
             "param_names": REGISTRY.names(),
+            "templates_list": list(TEMPLATES.values()),
+            "selected_template_id": selected_template_id,
+            "selected_paragraph_ids": set(paragraph_ids),
+
+            "weight_kg": "" if weight_kg is None else weight_kg,
+            "height_cm": "" if height_cm is None else height_cm,
+            "raw_vals": raw_vals,
+
+            "report": report,
+            "error": error,
         },
-    )
-
-
-@app.post("/generate_async", response_class=HTMLResponse)
-async def generate_async(request: Request):
-    form = await request.form()
-
-    try:
-        weight_kg = float(str(form.get("weight_kg", "")).strip())
-        height_cm = float(str(form.get("height_cm", "")).strip())
-    except Exception:
-        return templates.TemplateResponse(
-            "result.html",
-            {"request": request, "error": "Nieprawidłowa masa lub wzrost.", "report": ""},
-        )
-
-    patient = PatientInputs(weight_kg=weight_kg, height_cm=height_cm)
-
-    raw_vals: Dict[str, float] = {}
-    for pname in REGISTRY.names():
-        s = str(form.get(pname, "")).strip()
-        if not s:
-            continue
-        try:
-            raw_vals[pname] = float(s)
-        except Exception:
-            pass
-
-    raw = EchoValues(values=raw_vals)
-
-    report = generate_report(patient, raw, REGISTRY, REPORT_TEMPLATE)
-
-    return templates.TemplateResponse(
-        "result.html",
-        {"request": request, "error": "", "report": report},
     )
