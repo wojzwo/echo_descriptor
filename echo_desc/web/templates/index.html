@@ -23,7 +23,7 @@
 
     <button type="button"
             class="tabbtn {% if active_tab == 'template' %}active{% endif %}"
-            data-tab="tab-template">Szablon</button>
+            data-tab="tab-template">Template editor</button>
 
     <button type="button"
             class="tabbtn {% if active_tab == 'settings' %}active{% endif %}"
@@ -50,21 +50,21 @@
       </div>
 
       <div class="card">
-        <h3>Szablon</h3>
+        <h3>Raport</h3>
         <div class="grid">
           <div>
-            <label for="templateSelect">Wybierz templatkę</label>
-            <select name="template_id" id="templateSelect">
-              {% for t in templates_list %}
-                <option value="{{ t.id }}" {% if t.id == selected_template_id %}selected{% endif %}>
-                  {{ t.title }} ({{ t.id }})
+            <label for="reportSelect">Wybierz raport</label>
+            <select name="report_id" id="reportSelect">
+              {% for r in reports_list %}
+                <option value="{{ r.id }}" {% if r.id == selected_report_id %}selected{% endif %}>
+                  {{ r.title }} ({{ r.id }})
                 </option>
               {% endfor %}
             </select>
           </div>
         </div>
         <div class="muted" style="margin-top:8px;">
-          Checklistę akapitów ustawiasz w tabie “Szablon”.
+          Skład raportu edytujesz w tabie “Template editor”.
         </div>
       </div>
     </div>
@@ -120,7 +120,6 @@
                   </div>
                 {% endfor %}
               </div>
-
             </details>
           </div>
           {% endif %}
@@ -141,42 +140,39 @@
       {% endif %}
     </section>
 
-    <!-- TAB: TEMPLATE -->
+    <!-- TAB: TEMPLATE EDITOR -->
     <section id="tab-template" class="panel {% if active_tab == 'template' %}active{% endif %}">
-      <h3>Wybór akapitów do opisu</h3>
-      <div class="muted">Zaznaczasz co ma wejść do finalnego opisu.</div>
-
-      {% for t in templates_list %}
-      <div class="card section templateBlock" data-template-id="{{ t.id }}" style="display:none;">
-        <div class="templateHeader">
-          <strong>{{ t.title }}</strong>
-          <span class="muted">{{ t.id }}</span>
-        </div>
-
-        <div class="checklist">
-          {% for par in t.paragraphs %}
-          <label class="checkitem">
-            <input
-              type="checkbox"
-              name="paragraph_ids"
-              value="{{ par.id }}"
-              {% if par.id in selected_paragraph_ids %}checked{% endif %}
-            />
-            <span>{{ par.label }}</span>
-            <span class="muted">({{ par.id }})</span>
-          </label>
-          {% endfor %}
-        </div>
-
-        <div class="section inlineBtns">
-          <button type="button" data-action="toggle-pars" data-on="1">Zaznacz wszystko</button>
-          <button type="button" data-action="toggle-pars" data-on="0">Odznacz wszystko</button>
-        </div>
+      <h3>Template editor</h3>
+      <div class="muted">
+        Paragrafy są definiowane globalnie. Raporty składają się z listy <code>paragraph_ids</code> w kolejności.
       </div>
-      {% endfor %}
 
-      <div class="section">
-        <button type="submit" class="primaryBtn">Generuj</button>
+      <!-- sub-tabs -->
+      <div class="tabs section" aria-label="Template editor tabs">
+        <button type="button" class="tabbtn active" data-subtab="sub-paragraphs">Paragraphs</button>
+        <button type="button" class="tabbtn" data-subtab="sub-reports">Reports</button>
+      </div>
+
+      <!-- Paragraphs -->
+      <div id="sub-paragraphs" class="panel active">
+        <div class="section inlineBtns">
+          <button type="button" class="primaryBtn" id="btnParAdd">+ Nowy paragraf</button>
+          <button type="button" id="btnTplSaveAll">Zapisz wszystko</button>
+          <span class="muted" id="tplDirtyHint" style="display:none;">Masz niezapisane zmiany.</span>
+        </div>
+
+        <div class="card section" id="paragraphsList"></div>
+      </div>
+
+      <!-- Reports -->
+      <div id="sub-reports" class="panel">
+        <div class="section inlineBtns">
+          <button type="button" class="primaryBtn" id="btnRepAdd">+ Nowy raport</button>
+          <button type="button" id="btnTplSaveAll2">Zapisz wszystko</button>
+          <span class="muted" id="tplDirtyHint2" style="display:none;">Masz niezapisane zmiany.</span>
+        </div>
+
+        <div class="card section" id="reportsList"></div>
       </div>
     </section>
   </form>
@@ -216,20 +212,10 @@
               {% set order = st.get('order', loop.index * 10) %}
               <tr data-param="{{ it.name }}">
                 <td>
-                  <input
-                    type="checkbox"
-                    class="uiEnabled"
-                    name="enabled__{{ it.name }}"
-                    {% if enabled %}checked{% endif %}
-                  />
+                  <input type="checkbox" class="uiEnabled" name="enabled__{{ it.name }}" {% if enabled %}checked{% endif %} />
                 </td>
                 <td>
-                  <input
-                    class="orderInput uiOrder"
-                    type="number"
-                    name="order__{{ it.name }}"
-                    value="{{ order }}"
-                  />
+                  <input class="orderInput uiOrder" type="number" name="order__{{ it.name }}" value="{{ order }}" />
                 </td>
                 <td>
                   <strong>{{ it.name }}</strong>
@@ -249,6 +235,11 @@
       </div>
     </form>
   </section>
+
+  <!-- bootstrap editor data (no extra fetch needed, but we still can fetch) -->
+  <script id="tplData" type="application/json">
+    {{ {"paragraphs": editor_paragraphs, "reports": editor_reports} | tojson }}
+  </script>
 
   <script src="/static/app.js"></script>
 </body>

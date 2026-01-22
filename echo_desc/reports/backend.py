@@ -20,10 +20,10 @@ def generate_report(
     raw: EchoValues,
     registry: ParamRegistry,
     template: ReportTemplate,
-    paragraphs_by_id: Dict[str, ParagraphTemplate],
+    paragraphs: Dict[str, ParagraphTemplate],
 ) -> str:
     calc = ZScoreCalculator(registry)
     z = calc.compute(raw, patient.bsa)
     ctx = build_context(patient, raw, z)
     renderer = TemplateRenderer()
-    return template.render(renderer, ctx, paragraphs_by_id)
+    return template.render(renderer, ctx, paragraphs)
