@@ -1,4 +1,3 @@
-# echo_desc/web/webapp.py
 from __future__ import annotations
 
 from typing import Dict, Any, List
@@ -8,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
+from ..config.io import ensure_bootstrap_tree
 from ..model import PatientInputs, EchoValues
 from ..parameters.registry_pettersen_detroit import build_registry_pettersen_detroit
 from ..reports.backend import generate_report
@@ -19,8 +19,21 @@ BASE_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = BASE_DIR / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
-REGISTRY = build_registry_pettersen_detroit()
-TEMPLATES = get_report_templates()
+# Filled on startup
+REGISTRY = None
+TEMPLATES = None
+
+
+@app.on_event("startup")
+def _startup() -> None:
+    """
+    1) Create local editable config files (if missing) by copying defaults.
+    2) Load registry + templates from LOCAL config.
+    """
+    global REGISTRY, TEMPLATES
+    ensure_bootstrap_tree()
+    REGISTRY = build_registry_pettersen_detroit()
+    TEMPLATES = get_report_templates()
 
 
 def _safe_float(x: Any) -> float | None:
@@ -35,7 +48,9 @@ def _safe_float(x: Any) -> float | None:
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
-    # defaulty
+    assert REGISTRY is not None
+    assert TEMPLATES is not None
+
     default_template_id = next(iter(TEMPLATES.keys()))
     default_paragraph_ids = [p.id for p in TEMPLATES[default_template_id].paragraphs]
 
@@ -47,11 +62,9 @@ def index(request: Request):
             "templates_list": list(TEMPLATES.values()),
             "selected_template_id": default_template_id,
             "selected_paragraph_ids": set(default_paragraph_ids),
-
             "weight_kg": "",
             "height_cm": "",
             "raw_vals": {},
-
             "report": "",
             "error": "",
         },
@@ -60,6 +73,9 @@ def index(request: Request):
 
 @app.post("/generate", response_class=HTMLResponse)
 async def generate_one_page(request: Request):
+    assert REGISTRY is not None
+    assert TEMPLATES is not None
+
     form = await request.form()
 
     weight_kg = _safe_float(form.get("weight_kg"))
@@ -104,11 +120,9 @@ async def generate_one_page(request: Request):
             "templates_list": list(TEMPLATES.values()),
             "selected_template_id": selected_template_id,
             "selected_paragraph_ids": set(paragraph_ids),
-
             "weight_kg": "" if weight_kg is None else weight_kg,
             "height_cm": "" if height_cm is None else height_cm,
             "raw_vals": raw_vals,
-
             "report": report,
             "error": error,
         },

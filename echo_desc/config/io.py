@@ -1,4 +1,3 @@
-# echo_desc/config/io.py
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -12,18 +11,11 @@ import shutil
 APP_NAME = "echo_desc"
 
 
-def _xdg_config_home() -> Path:
-    x = os.environ.get("XDG_CONFIG_HOME", "").strip()
-    if x:
-        return Path(x).expanduser()
-    return Path.home() / ".config"
-
-
 @dataclass(frozen=True)
 class ConfigPaths:
     """
-    Local (user) config dir by default (outside repo):
-      ~/.config/echo_desc/
+    Repo-local config dir by default:
+      <repo_root>/config/
 
     Override with env:
       ECHO_DESC_CONFIG_DIR=/some/path
@@ -37,8 +29,10 @@ class ConfigPaths:
         if env:
             return ConfigPaths(base_dir=Path(env).expanduser().resolve())
 
-        # default: user-local config directory
-        return ConfigPaths(base_dir=(_xdg_config_home() / APP_NAME).resolve())
+        # default: repo-root/config
+        # package_root = .../<repo_root>/echo_desc
+        repo_root = Path(__file__).resolve().parents[2]
+        return ConfigPaths(base_dir=(repo_root / "config").resolve())
 
     def file(self, rel: str) -> Path:
         return (self.base_dir / rel).resolve()
@@ -46,26 +40,24 @@ class ConfigPaths:
 
 def package_root() -> Path:
     """
-    Returns path to the python package directory: .../echo_desc
+    Absolute path to python package directory: .../<repo_root>/echo_desc
     """
     return Path(__file__).resolve().parents[1]
 
 
 def defaults_dir() -> Path:
     """
-    Returns path to packaged defaults: .../echo_desc/config_defaults
+    Absolute path: .../<repo_root>/echo_desc/config_defaults
     """
     return (package_root() / "config_defaults").resolve()
 
 
 def ensure_bootstrap_file(rel: str) -> Path:
     """
-    Return LOCAL config path for rel.
-    If missing, bootstrap-copy from packaged defaults.
+    Ensure repo-local config has <repo_root>/config/<rel>.
+    If missing, copy from packaged defaults: <repo_root>/echo_desc/config_defaults/<rel>.
 
-    rel examples:
-      "parameters/pettersen_detroit.yaml"
-      "reports/templates.yaml"
+    Returns: local path.
     """
     cfg = ConfigPaths.resolve()
     dst = cfg.file(rel)
@@ -79,6 +71,29 @@ def ensure_bootstrap_file(rel: str) -> Path:
     dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(src, dst)
     return dst
+
+
+def ensure_bootstrap_tree() -> None:
+    """
+    Copies entire echo_desc/config_defaults/** into repo-local config dir
+    (<repo_root>/config/**) but only for files that do not exist yet.
+    """
+    cfg = ConfigPaths.resolve()
+    src_root = defaults_dir()
+    dst_root = cfg.base_dir
+
+    if not src_root.exists():
+        raise FileNotFoundError(f"Defaults dir not found: {src_root}")
+
+    for src in src_root.rglob("*"):
+        if src.is_dir():
+            continue
+        rel = src.relative_to(src_root)
+        dst = (dst_root / rel).resolve()
+        if dst.exists():
+            continue
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
 
 
 def read_text(path: Path, encoding: str = "utf-8") -> str:
@@ -99,29 +114,18 @@ def save_json(path: Path, data: Any, indent: int = 2) -> None:
 
 
 def load_yaml(path: Path) -> Any:
-    """
-    Requires PyYAML: pip install pyyaml
-    """
     try:
         import yaml  # type: ignore
     except Exception as e:
-        raise RuntimeError(
-            "PyYAML is required to load YAML configs. Install: pip install pyyaml"
-        ) from e
-
+        raise RuntimeError("PyYAML is required. Install: pip install pyyaml") from e
     return yaml.safe_load(read_text(path))
 
 
 def save_yaml(path: Path, data: Any) -> None:
-    """
-    Requires PyYAML: pip install pyyaml
-    """
     try:
         import yaml  # type: ignore
     except Exception as e:
-        raise RuntimeError(
-            "PyYAML is required to save YAML configs. Install: pip install pyyaml"
-        ) from e
+        raise RuntimeError("PyYAML is required. Install: pip install pyyaml") from e
 
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:

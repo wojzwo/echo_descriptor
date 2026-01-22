@@ -1,5 +1,7 @@
 # Echo Descriptor - Project Documentation
 
+DOCS CAN BE DEPRECATED ARE NOT UPDATED CONSISTENTLY
+
 ## Overview
 
 **Echo Descriptor** is an automated descriptor generator for pediatric echocardiography procedures with Z-score calculations. It uses the Pettersen MD et al. (Detroit Data) norms to calculate Z-scores for various cardiac measurements based on patient's body surface area (BSA).
@@ -38,6 +40,9 @@ echo_descriptor/
 ├── README.md                 # Project overview and setup instructions
 └── DOCS.md                   # This documentation file
 ```
+
+
+REF FILE: CONFIGURATION_SYSTEM.md 
 
 ---
 
@@ -492,44 +497,6 @@ Here's how data flows through the application:
 
 ## How to Customize
 
-### Adding New Parameters
-
-**File:** `echo_desc/parameters/registry_pettersen_detroit.py`
-
-1. Find the `params` dictionary in `build_registry_pettersen_detroit()`
-2. Add a new entry:
-```python
-"NEWPARAM": Parameter(
-    name="NEWPARAM",
-    alpha=0.50,  # BSA scaling exponent
-    mean=1.50,   # Expected mean
-    sd=0.15,     # Standard deviation
-    description="New parameter description"
-),
-```
-3. Save the file
-4. Restart the application
-5. The parameter will automatically appear in the web form
-
-### Modifying Report Templates
-
-**File:** `echo_desc/reports/report_templates.py`
-
-**To add a new paragraph:**
-```python
-ParagraphTemplate(
-    id="my_section",
-    text="New section: {PARAM:.2f} (z= {PARAM_z:.2f})."
-),
-```
-
-**To modify existing paragraph:**
-1. Find the paragraph by `id`
-2. Edit the `text` field
-3. Use placeholders like:
-   - `{PARAMETER}` for raw value
-   - `{PARAMETER_z}` for Z-score
-   - `{PARAMETER:.2f}` for 2 decimal places
 
 ### Changing Calculations
 
@@ -551,6 +518,9 @@ export ECHOZ_HOST=0.0.0.0
 export ECHOZ_PORT=8080
 uv run echo_desc
 ```
+
+
+REF FILE: CONFIGURATION_SYSTEM.md 
 
 ---
 
