@@ -1,0 +1,82 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "echo: uv run webapp",
+      "type": "shell",
+      "command": "uv",
+      "args": ["run", "echo_desc"],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "ECHOZ_HOST": "127.0.0.1",
+          "ECHOZ_PORT": "8000"
+        }
+      },
+      "problemMatcher": [],
+      "isBackground": true,
+
+      "runOptions": {
+        "instanceLimit": 1
+      },
+
+      "presentation": {
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "clear": true,
+        "showReuseMessage": true
+      },
+
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "echo: uvicorn webapp (reload)",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "run",
+        "uvicorn",
+        "echo_desc.web.webapp:app",
+        "--reload",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8000"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "ECHOZ_HOST": "127.0.0.1",
+          "ECHOZ_PORT": "8000"
+        }
+      },
+      "problemMatcher": [],
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
+    },
+    {
+      "label": "echo: sync config_defaults",
+      "type": "shell",
+      "command": "uv",
+      "args": ["run", "python", "scripts/sync_config_defaults.py"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      }
+      // brak "group" => nie jest build/test default, nie podpina się pod skróty
+    }
+  ]
+}
