@@ -1,103 +1,103 @@
 params:
 - name: AAO
   enabled: true
-  order: 10
+  order: 70
 - name: ANN
-  enabled: false
-  order: 6
-- name: ARCHDIST
-  enabled: true
-  order: 1
-- name: ARCHPROX
   enabled: true
   order: 40
+- name: ARCHDIST
+  enabled: false
+  order: 9999
+- name: ARCHPROX
+  enabled: false
+  order: 9999
 - name: ISTH
-  enabled: true
-  order: 50
+  enabled: false
+  order: 9999
 - name: LAD
-  enabled: true
-  order: 2
+  enabled: false
+  order: 9999
 - name: LMCA
   enabled: false
-  order: 70
+  order: 9999
 - name: LPA
-  enabled: false
-  order: 80
+  enabled: true
+  order: 100
 - name: LVEDA
   enabled: false
-  order: 90
+  order: 9999
 - name: LVEDAEPI
   enabled: false
-  order: 100
+  order: 9999
 - name: LVEDD
-  enabled: false
+  enabled: true
   order: 10
 - name: LVEDL
   enabled: false
-  order: 120
+  order: 9999
 - name: LVEDLEPI
   enabled: false
-  order: 130
+  order: 9999
 - name: LVEDV
   enabled: false
-  order: 140
+  order: 9999
 - name: LVEDVEPI
   enabled: false
-  order: 150
+  order: 9999
 - name: LVM
   enabled: false
-  order: 160
+  order: 9999
 - name: LVMTV
   enabled: false
-  order: 170
+  order: 9999
 - name: LVPWT
-  enabled: false
-  order: 180
+  enabled: true
+  order: 30
 - name: LVSI
   enabled: false
-  order: 999
+  order: 9999
 - name: LVST
-  enabled: false
-  order: 200
+  enabled: true
+  order: 20
 - name: LVTTD
   enabled: false
-  order: 210
+  order: 9999
 - name: MPA
-  enabled: false
-  order: 220
+  enabled: true
+  order: 80
 - name: MVA
   enabled: false
-  order: 230
+  order: 9999
 - name: MVAP
   enabled: false
-  order: 240
+  order: 9999
 - name: MVLAT
   enabled: false
-  order: 250
+  order: 9999
 - name: PVLAX
   enabled: false
-  order: 260
+  order: 9999
 - name: PVSAX
   enabled: false
-  order: 270
+  order: 9999
 - name: RCA
   enabled: false
-  order: 280
+  order: 9999
 - name: ROOT
-  enabled: false
-  order: 20
+  enabled: true
+  order: 50
 - name: RPA
-  enabled: false
-  order: 300
+  enabled: true
+  order: 90
 - name: STJ
-  enabled: false
-  order: 310
+  enabled: true
+  order: 60
 - name: TVA
   enabled: false
-  order: 320
+  order: 9999
 - name: TVAP
   enabled: false
-  order: 330
+  order: 9999
 - name: TVLAT
   enabled: false
-  order: 340
+  order: 9999

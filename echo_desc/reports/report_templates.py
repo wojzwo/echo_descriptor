@@ -37,28 +37,46 @@ class ReportTemplate:
         return "\n\n".join(rendered)
 
 
-def _templates_relpath() -> str:
-    # relative path inside config tree
-    return "reports/templates.yaml"
+# -----------------------
+# Paths (relative in config tree)
+# -----------------------
+def _paragraphs_relpath() -> str:
+    return "reports/paragraphs.yaml"
 
 
-def templates_path():
+def _reports_relpath() -> str:
+    return "reports/reports.yaml"
+
+
+def paragraphs_path():
     """
     Repo-local config path (bootstrapped from defaults if missing).
     """
-    return ensure_bootstrap_file(_templates_relpath())
+    return ensure_bootstrap_file(_paragraphs_relpath())
 
 
+def reports_path():
+    """
+    Repo-local config path (bootstrapped from defaults if missing).
+    """
+    return ensure_bootstrap_file(_reports_relpath())
+
+
+# -----------------------
+# Load
+# -----------------------
 def get_report_templates() -> Tuple[Dict[str, ParagraphTemplate], Dict[str, ReportTemplate]]:
     """
     Loads templates YAML (repo-local, bootstrapped from defaults):
 
+    paragraphs.yaml:
       paragraphs:
         - id: ...
           label: ...
           description: ...
           text: ...
 
+    reports.yaml:
       reports:
         - id: ...
           title: ...
@@ -71,21 +89,30 @@ def get_report_templates() -> Tuple[Dict[str, ParagraphTemplate], Dict[str, Repo
       - empty paragraphs/reports are allowed (editor can start from blank)
       - invalid YAML structure -> ValueError
     """
-    path = templates_path()
-    doc = load_yaml(path)
+    p_path = paragraphs_path()
+    r_path = reports_path()
 
-    if doc is None:
-        # empty file -> treat as blank structure
-        return {}, {}
+    par_doc = load_yaml(p_path)
+    rep_doc = load_yaml(r_path)
 
-    if not isinstance(doc, dict):
-        raise ValueError(f"Invalid templates YAML (root must be dict): {path}")
+    # empty file -> treat as blank structure
+    if par_doc is None:
+        par_doc = {}
+    if rep_doc is None:
+        rep_doc = {}
 
-    par_list = doc.get("paragraphs", [])
-    rep_list = doc.get("reports", [])
+    if not isinstance(par_doc, dict):
+        raise ValueError(f"Invalid paragraphs YAML (root must be dict): {p_path}")
+    if not isinstance(rep_doc, dict):
+        raise ValueError(f"Invalid reports YAML (root must be dict): {r_path}")
 
-    if not isinstance(par_list, list) or not isinstance(rep_list, list):
-        raise ValueError(f"Invalid templates YAML (paragraphs/reports must be lists): {path}")
+    par_list = par_doc.get("paragraphs", [])
+    rep_list = rep_doc.get("reports", [])
+
+    if not isinstance(par_list, list):
+        raise ValueError(f"Invalid paragraphs YAML (paragraphs must be list): {p_path}")
+    if not isinstance(rep_list, list):
+        raise ValueError(f"Invalid reports YAML (reports must be list): {r_path}")
 
     paragraphs: Dict[str, ParagraphTemplate] = {}
     for it in par_list:
@@ -96,11 +123,9 @@ def get_report_templates() -> Tuple[Dict[str, ParagraphTemplate], Dict[str, Repo
             continue
 
         label = str(it.get("label", pid)).strip() or pid
-        text = str(it.get("text", "")).strip()
+        text = str(it.get("text", "") or "")  # keep as-is (can contain newlines)
         desc = str(it.get("description", "") or "").strip()
 
-        # allow creating "stub" paragraph in editor (text can be empty), but
-        # runtime rendering will show empty -> blank paragraph (fine)
         paragraphs[pid] = ParagraphTemplate(
             id=pid,
             label=label,
@@ -127,15 +152,21 @@ def get_report_templates() -> Tuple[Dict[str, ParagraphTemplate], Dict[str, Repo
     return paragraphs, reports
 
 
+# -----------------------
+# Save
+# -----------------------
 def save_report_templates(
     paragraphs: Dict[str, ParagraphTemplate],
     reports: Dict[str, ReportTemplate],
 ) -> None:
     """
-    Save into repo-local: ./config/reports/templates.yaml
-    (path is obtained via ensure_bootstrap_file so file exists)
+    Save into repo-local:
+      ./config/reports/paragraphs.yaml
+      ./config/reports/reports.yaml
+    (paths are obtained via ensure_bootstrap_file so files exist)
     """
-    path = templates_path()
+    p_path = paragraphs_path()
+    r_path = reports_path()
 
     par_out: List[Dict[str, Any]] = []
     for pid in sorted(paragraphs.keys()):
@@ -160,10 +191,13 @@ def save_report_templates(
             }
         )
 
-    doc = {"paragraphs": par_out, "reports": rep_out}
-    save_yaml(path, doc)
+    save_yaml(p_path, {"paragraphs": par_out})
+    save_yaml(r_path, {"reports": rep_out})
 
 
+# -----------------------
+# Runtime helper
+# -----------------------
 def filter_report(
     base: ReportTemplate,
     selected_paragraph_ids: Iterable[str],

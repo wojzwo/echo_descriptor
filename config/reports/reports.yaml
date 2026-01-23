@@ -1,0 +1,10 @@
+# echo_desc/config_defaults/reports/reports.yaml
+
+reports:
+  - id: default_echo
+    title: "Domyślny (skrót)"
+    paragraph_ids: [norms, bsa, lv_dims, aorta, pa, conclusion]
+
+  - id: rep2_test
+    title: "Domyślny (skrót)"
+    paragraph_ids: [lv_dims, norms, pa, conclusion]
