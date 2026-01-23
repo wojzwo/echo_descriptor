@@ -1,9 +1,11 @@
-// settings_ui.js
+// echo_desc/web/static/settings_ui.js
 (function () {
   "use strict";
 
   window.initSettings = function initSettings() {
     const table = document.getElementById("settingsTable");
+    const tbody = document.getElementById("settingsBody");
+    const form = document.getElementById("settingsForm");
     const exportBox = document.getElementById("exportBox");
 
     const btnExport = document.getElementById("btnExport");
@@ -11,10 +13,10 @@
     const btnHideAll = document.getElementById("btnHideAll");
     const btnResetOrder = document.getElementById("btnResetOrder");
 
-    if (!table) return;
+    if (!table || !tbody) return;
 
     function rows() {
-      return Array.from(document.querySelectorAll("#settingsBody tr[data-param]"));
+      return Array.from(tbody.querySelectorAll('tr[data-param]'));
     }
 
     function exportYamlFromTable() {
@@ -43,6 +45,18 @@
       exportBox.value = exportYamlFromTable();
     }
 
+    function recomputeOrder(step = 10) {
+      // DOM order => order numbers
+      rows().forEach((tr, idx) => {
+        const name = tr.dataset.param || "";
+        const inp = tr.querySelector(`input.uiOrder[name="order__${CSS.escape(name)}"]`);
+        if (inp) inp.value = String((idx + 1) * step);
+      });
+    }
+
+    // ----------------------------
+    // Live refresh (inputs + checks)
+    // ----------------------------
     table.addEventListener("input", refreshExportBox);
     refreshExportBox();
 
@@ -70,12 +84,78 @@
     });
 
     btnResetOrder?.addEventListener("click", () => {
-      let i = 1;
-      rows().forEach(tr => {
-        const ord = tr.querySelector("input.uiOrder");
-        if (ord) ord.value = String(i * 10);
-        i += 1;
-      });
+      // reset order by current DOM sequence (registry order = initial render order)
+      recomputeOrder(10);
+      refreshExportBox();
+    });
+
+    // ----------------------------
+    // Drag & drop reorder
+    // ----------------------------
+    let draggingRow = null;
+
+    function rowFromEvent(e) {
+      return e.target?.closest?.('tr[data-param]') || null;
+    }
+
+    // Optional: allow drag only by handle
+    function isHandle(e) {
+      return !!e.target?.closest?.(".dragHandle");
+    }
+
+    tbody.addEventListener("dragstart", (e) => {
+      const tr = rowFromEvent(e);
+      if (!tr) return;
+
+      // uncomment if you want handle-only dragging:
+      // if (!isHandle(e)) { e.preventDefault(); return; }
+
+      draggingRow = tr;
+      tr.classList.add("dragging");
+
+      try {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", tr.dataset.param || "");
+      } catch (_) {}
+    });
+
+    tbody.addEventListener("dragend", () => {
+      if (draggingRow) draggingRow.classList.remove("dragging");
+      draggingRow = null;
+      rows().forEach(r => r.classList.remove("dropTarget"));
+    });
+
+    tbody.addEventListener("dragover", (e) => {
+      const over = rowFromEvent(e);
+      if (!draggingRow || !over || over === draggingRow) return;
+
+      e.preventDefault(); // allow drop
+
+      rows().forEach(r => r.classList.remove("dropTarget"));
+      over.classList.add("dropTarget");
+
+      const rect = over.getBoundingClientRect();
+      const before = e.clientY < rect.top + rect.height / 2;
+
+      if (before) {
+        if (over.previousSibling !== draggingRow) tbody.insertBefore(draggingRow, over);
+      } else {
+        if (over.nextSibling !== draggingRow) tbody.insertBefore(draggingRow, over.nextSibling);
+      }
+    });
+
+    tbody.addEventListener("drop", (e) => {
+      if (!draggingRow) return;
+      e.preventDefault();
+
+      // after drop: recompute order + refresh export
+      recomputeOrder(10);
+      refreshExportBox();
+    });
+
+    // Always recompute right before saving (so backend gets correct order)
+    form?.addEventListener("submit", () => {
+      recomputeOrder(10);
       refreshExportBox();
     });
   };

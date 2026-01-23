@@ -317,3 +317,39 @@ textarea {
 }
 
 .addRow select { max-width: 420px; }
+
+
+/* ===========================
+   Settings: drag & drop
+   =========================== */
+
+.dragCell {
+  text-align: center;
+  width: 42px;
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+.dragHandle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  border: 1px solid #eee;
+  background: #fff;
+  cursor: grab;
+  user-select: none;
+  opacity: 0.75;
+}
+
+.dragHandle:active { cursor: grabbing; }
+
+tr.dragging {
+  opacity: 0.55;
+}
+
+tr.dropTarget td {
+  background: #fafafa;
+}

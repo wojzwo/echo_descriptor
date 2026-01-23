@@ -1,3 +1,4 @@
+<!--echo_desc/web/templates/index.html-->
 <!doctype html>
 <html lang="pl">
 <head>
@@ -185,7 +186,6 @@
         </div>
 
         <div class="card section">
-          <!-- templates_ui.js renderuje tutaj .tplItem + .tplEditor -->
           <div class="tplList" id="paragraphList"></div>
         </div>
       </div>
@@ -205,13 +205,12 @@
         </div>
 
         <div class="card section">
-          <!-- templates_ui.js renderuje tutaj .tplItem + .tplEditor -->
           <div class="tplList" id="reportList"></div>
         </div>
       </div>
 
       <div class="section muted">
-        Backend zapisuje do: 
+        Backend zapisuje do:
         <span class="pill">./config/reports/paragraphs.yaml</span>
         <span class="pill">./config/reports/reports.yaml</span>
       </div>
@@ -239,6 +238,7 @@
         <table class="settingsTable" id="settingsTable">
           <thead>
             <tr>
+              <th style="width:42px;"></th>
               <th style="width:90px;">Pokaż</th>
               <th style="width:120px;">Order</th>
               <th>Parametr</th>
@@ -249,7 +249,8 @@
               {% set st = param_ui.get(it.name, {}) %}
               {% set enabled = st.get('enabled', True) %}
               {% set order = st.get('order', loop.index * 10) %}
-              <tr data-param="{{ it.name }}">
+              <tr data-param="{{ it.name }}" draggable="true">
+                <td class="dragCell"><span class="dragHandle" title="Przeciągnij">☰</span></td>
                 <td>
                   <input type="checkbox" class="uiEnabled" name="enabled__{{ it.name }}" {% if enabled %}checked{% endif %}/>
                 </td>
@@ -275,7 +276,6 @@
     </form>
   </section>
 
-  <!-- preload templates for editor -->
   <script id="tplData" type="application/json">{{ templates_json | safe }}</script>
 
   <script src="/static/app.js" defer></script>
