@@ -263,6 +263,29 @@ async def save_settings(request: Request):
     return RedirectResponse(url="/?tab=settings", status_code=303)
 
 
+@app.get("/api/settings/parameters_ui")
+def api_settings_parameters_ui():
+    """
+    Returns current server-side settings as a normalized list:
+      { ok: true, params: [ {name, enabled, order} ... ] }
+    """
+    ui = load_param_ui()
+
+    # normalize (list, deterministic order by name)
+    out: List[Dict[str, Any]] = []
+    for name in sorted(ui.keys()):
+        st = ui.get(name, {})
+        out.append(
+            {
+                "name": name,
+                "enabled": bool(st.get("enabled", True)),
+                "order": int(st.get("order", 9999)),
+            }
+        )
+
+    return {"ok": True, "params": out}
+
+
 @app.post("/generate", response_class=HTMLResponse)
 async def generate_one_page(request: Request):
     assert REGISTRY is not None

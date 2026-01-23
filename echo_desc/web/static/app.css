@@ -353,3 +353,6 @@ tr.dragging {
 tr.dropTarget td {
   background: #fafafa;
 }
+tbody.dropZone tr.dropTarget td { background: #fafafa; }
+tbody.dropZone { outline: 2px dashed #ccc; outline-offset: 6px; border-radius: 12px; }
+tbody.dropZone td { background: #fafafa; }
