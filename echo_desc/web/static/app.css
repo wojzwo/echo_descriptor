@@ -1,8 +1,13 @@
+/* =========================
+   app.css (FULL)
+   ========================= */
+
 /* Base */
 * { box-sizing: border-box; }
+
 body {
   font-family: system-ui, sans-serif;
-  margin: 24px auto;           /* centrowanie na dużych ekranach */
+  margin: 24px auto;                 /* center on large screens */
   max-width: 1100px;
   line-height: 1.35;
 }
@@ -13,7 +18,7 @@ label { display: inline-block; margin-bottom: 6px; }
 /* Header */
 .pageHeader { margin-bottom: 10px; }
 
-/* Tabs */
+/* Tabs (main) */
 .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
 .tabbtn {
   padding: 10px 12px;
@@ -21,6 +26,7 @@ label { display: inline-block; margin-bottom: 6px; }
   background: #fff;
   border-radius: 10px;
   cursor: pointer;
+  user-select: none;
 }
 .tabbtn.active { border-color: #888; font-weight: 600; }
 
@@ -35,6 +41,7 @@ label { display: inline-block; margin-bottom: 6px; }
 
 /* Layout */
 .section { margin-top: 14px; }
+
 .grid { display: grid; grid-template-columns: 260px 1fr; gap: 10px; }
 .twoCols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 
@@ -66,6 +73,12 @@ button {
   border: 1px solid #ccc;
   background: #fff;
   cursor: pointer;
+  user-select: none;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .primaryBtn {
@@ -90,13 +103,14 @@ pre {
   border: 1px solid #eee;
 }
 
-/* Template */
+/* Template (legacy checklist blocks if still used) */
 .templateHeader { display:flex; justify-content: space-between; align-items: center; }
+
 .checklist { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 10px; }
 
 .checkitem {
   display: flex;
-  align-items: flex-start;     /* ważne przy dłuższych labelach */
+  align-items: flex-start;     /* better for long labels */
   gap: 10px;
   line-height: 1.25;
 }
@@ -109,17 +123,15 @@ details {
   padding: 10px 12px;
   background: #fff;
 }
-summary { cursor: pointer; font-weight: 600; }
+summary { cursor: pointer; font-weight: 600; user-select: none; }
 
 /* ===========================
-   PARAMS (NEW LAYOUT)
-   - kafelki w gridzie
-   - label + opis nad inputem
+   PARAMS (cards in grid)
    =========================== */
 
 .paramsGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr; /* 2 kolumny */
+  grid-template-columns: 1fr 1fr;   /* 2 columns (PC prototype) */
   gap: 14px;
   margin-top: 10px;
 }
@@ -131,8 +143,8 @@ summary { cursor: pointer; font-weight: 600; }
   padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;                  /* stabilniej niż marginy */
-  min-width: 0;              /* ważne: grid overflow fix */
+  gap: 8px;                         /* steadier than margins */
+  min-width: 0;                     /* grid overflow fix */
 }
 
 .paramKey {
@@ -167,9 +179,11 @@ summary { cursor: pointer; font-weight: 600; }
   padding: 8px 10px;
   vertical-align: top;
 }
+
 .settingsTable tbody tr:last-child td { border-bottom: 0; }
 
 .settingsTable th { text-align: left; background: #fafafa; }
+
 .settingsControls { display: flex; gap: 8px; flex-wrap: wrap; }
 
 .orderInput { width: 90px; }
@@ -183,3 +197,123 @@ textarea {
   border-radius: 12px;
   border: 1px solid #ddd;
 }
+
+/* ===========================
+   Template Editor (new)
+   =========================== */
+
+.subtabs { display:flex; gap:8px; margin-top: 10px; }
+
+.subtabbtn {
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  background: #fff;
+  border-radius: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.subtabbtn.active { border-color:#888; font-weight:600; }
+
+.subpanel { display:none; }
+.subpanel.active { display:block; }
+
+.tplList { display:flex; flex-direction: column; gap: 10px; }
+
+/* Optional generic item wrapper if you render as .tplItem */
+.tplItem {
+  border: 1px solid #eee;
+  background: #fff;
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.tplRow {
+  display:flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tplMeta { flex: 1; min-width: 0; }
+
+.tplTitleLine {
+  display:flex;
+  gap:10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.tplId { font-weight: 800; }
+.tplLabel { font-weight: 600; }
+.tplDesc { color:#666; font-size: 0.9rem; }
+
+.tplPreview {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: #f5f5f5;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  color: #444;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tplActions { display:flex; gap:8px; flex-wrap: wrap; }
+
+.tplEditor {
+  margin-top: 10px;
+  border-top: 1px dashed #ddd;
+  padding-top: 10px;
+}
+
+.tplEditorGrid {
+  display:grid;
+  grid-template-columns: 220px 1fr 1fr;
+  gap: 10px;
+}
+
+.tplEditorGrid input { width: 100%; }
+
+.tplEditorText { margin-top: 10px; }
+
+.tplEditorText textarea {
+  min-height: 120px;
+  background: #f8f8f8;
+}
+
+.pills {
+  display:flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.pillBtn {
+  border: 1px solid #ddd;
+  background: #fff;
+  border-radius: 999px;
+  padding: 6px 10px;
+  cursor: grab;
+  display:flex;
+  gap:8px;
+  align-items: center;
+  user-select: none;
+}
+
+.pillX {
+  font-weight: 900;
+  cursor: pointer;
+  user-select: none;
+}
+
+.addRow {
+  display:flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.addRow select { max-width: 420px; }

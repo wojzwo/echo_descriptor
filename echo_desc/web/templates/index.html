@@ -23,7 +23,7 @@
 
     <button type="button"
             class="tabbtn {% if active_tab == 'template' %}active{% endif %}"
-            data-tab="tab-template">Template editor</button>
+            data-tab="tab-template">Szablon</button>
 
     <button type="button"
             class="tabbtn {% if active_tab == 'settings' %}active{% endif %}"
@@ -50,21 +50,21 @@
       </div>
 
       <div class="card">
-        <h3>Raport</h3>
+        <h3>Szablon raportu</h3>
         <div class="grid">
           <div>
-            <label for="reportSelect">Wybierz raport</label>
-            <select name="report_id" id="reportSelect">
-              {% for r in reports_list %}
-                <option value="{{ r.id }}" {% if r.id == selected_report_id %}selected{% endif %}>
-                  {{ r.title }} ({{ r.id }})
+            <label for="templateSelect">Wybierz raport</label>
+            <select name="template_id" id="templateSelect">
+              {% for t in templates_list %}
+                <option value="{{ t.id }}" {% if t.id == selected_template_id %}selected{% endif %}>
+                  {{ t.title }} ({{ t.id }})
                 </option>
               {% endfor %}
             </select>
           </div>
         </div>
         <div class="muted" style="margin-top:8px;">
-          Skład raportu edytujesz w tabie “Template editor”.
+          W tabie “Szablon” możesz edytować paragrafy i składy raportów.
         </div>
       </div>
     </div>
@@ -140,50 +140,54 @@
       {% endif %}
     </section>
 
-    <!-- TAB: TEMPLATE EDITOR -->
+    <!-- TAB: TEMPLATE (EDITOR) -->
     <section id="tab-template" class="panel {% if active_tab == 'template' %}active{% endif %}">
-      <h3>Template editor</h3>
-      <div class="muted">
-        Paragrafy są definiowane globalnie. Raporty składają się z listy <code>paragraph_ids</code> w kolejności.
-      </div>
+      <h3>Template Editor</h3>
+      <div class="muted">Edytujesz bazę paragrafów i raporty składające się z paragrafów (kolejność ma znaczenie).</div>
 
       <!-- sub-tabs -->
-      <div class="tabs section" aria-label="Template editor tabs">
-        <button type="button" class="tabbtn active" data-subtab="sub-paragraphs">Paragraphs</button>
-        <button type="button" class="tabbtn" data-subtab="sub-reports">Reports</button>
+      <div class="subtabs section">
+        <button type="button" class="subtabbtn active" data-subtab="sub-paragraphs">Paragraphs</button>
+        <button type="button" class="subtabbtn" data-subtab="sub-reports">Reports</button>
       </div>
 
-      <!-- Paragraphs -->
-      <div id="sub-paragraphs" class="panel active">
+      <!-- PARAGRAPHS -->
+      <div id="sub-paragraphs" class="subpanel active">
         <div class="section inlineBtns">
-          <button type="button" class="primaryBtn" id="btnParAdd">+ Nowy paragraf</button>
-          <button type="button" id="btnTplSaveAll">Zapisz wszystko</button>
-          <span class="muted" id="tplDirtyHint" style="display:none;">Masz niezapisane zmiany.</span>
+          <button type="button" id="btnParAdd">+ Nowy paragraf</button>
+          <button type="button" class="primaryBtn" id="btnTplSave1">Zapisz do YAML</button>
+          <span class="muted" id="tplDirty1" style="display:none;">Masz niezapisane zmiany.</span>
         </div>
 
-        <div class="card section" id="paragraphsList"></div>
+        <div class="card section">
+          <div class="tplList" id="paragraphList"></div>
+        </div>
       </div>
 
-      <!-- Reports -->
-      <div id="sub-reports" class="panel">
+      <!-- REPORTS -->
+      <div id="sub-reports" class="subpanel">
         <div class="section inlineBtns">
-          <button type="button" class="primaryBtn" id="btnRepAdd">+ Nowy raport</button>
-          <button type="button" id="btnTplSaveAll2">Zapisz wszystko</button>
-          <span class="muted" id="tplDirtyHint2" style="display:none;">Masz niezapisane zmiany.</span>
+          <button type="button" id="btnRepAdd">+ Nowy raport</button>
+          <button type="button" class="primaryBtn" id="btnTplSave2">Zapisz do YAML</button>
+          <span class="muted" id="tplDirty2" style="display:none;">Masz niezapisane zmiany.</span>
         </div>
 
-        <div class="card section" id="reportsList"></div>
+        <div class="card section">
+          <div class="tplList" id="reportList"></div>
+        </div>
+      </div>
+
+      <div class="section muted">
+        Backend zapisuje do: <span class="pill">./config/reports/templates_v2.yaml</span>
       </div>
     </section>
   </form>
 
-  <!-- =========================
-       FORM B: SETTINGS SAVE
-       ========================= -->
+  <!-- TAB: SETTINGS -->
   <section id="tab-settings" class="panel {% if active_tab == 'settings' %}active{% endif %}">
     <h3>Settings: widoczność i kolejność parametrów</h3>
     <div class="muted">
-      To jest ustawienie UI (webgui), nie “parametry norm”. Zapis idzie do repo:
+      To jest ustawienie UI (webgui). Zapis idzie do repo:
       <span class="pill">./config/web/parameters_ui.yaml</span>
     </div>
 
@@ -212,10 +216,10 @@
               {% set order = st.get('order', loop.index * 10) %}
               <tr data-param="{{ it.name }}">
                 <td>
-                  <input type="checkbox" class="uiEnabled" name="enabled__{{ it.name }}" {% if enabled %}checked{% endif %} />
+                  <input type="checkbox" class="uiEnabled" name="enabled__{{ it.name }}" {% if enabled %}checked{% endif %}/>
                 </td>
                 <td>
-                  <input class="orderInput uiOrder" type="number" name="order__{{ it.name }}" value="{{ order }}" />
+                  <input class="orderInput uiOrder" type="number" name="order__{{ it.name }}" value="{{ order }}"/>
                 </td>
                 <td>
                   <strong>{{ it.name }}</strong>
@@ -230,17 +234,19 @@
       </div>
 
       <div class="section">
-        <h4 style="margin:0 0 8px 0;">Podgląd YAML (z aktualnych pól w tabeli)</h4>
+        <h4 style="margin:0 0 8px 0;">Podgląd YAML</h4>
         <textarea id="exportBox" readonly></textarea>
       </div>
     </form>
   </section>
 
-  <!-- bootstrap editor data (no extra fetch needed, but we still can fetch) -->
-  <script id="tplData" type="application/json">
-    {{ {"paragraphs": editor_paragraphs, "reports": editor_reports} | tojson }}
-  </script>
+  <!-- preload templates for editor -->
+  <script id="tplData" type="application/json">{{ templates_v2_json | safe }}</script>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js" defer></script>
+  <script src="/static/tabs.js" defer></script>
+  <script src="/static/settings_ui.js" defer></script>
+  <script src="/static/templates_ui.js" defer></script>
+  
 </body>
 </html>
