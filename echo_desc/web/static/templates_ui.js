@@ -1,4 +1,4 @@
-// templates_ui.js (dopasowane do Twojego HTML)
+// echo_desc/web/static/templates_ui.js
 (function () {
   "use strict";
 
@@ -7,21 +7,19 @@
     if (!tplPanel) return;
 
     // ---------- SUBTABS ----------
-    const subBtns = Array.from(tplPanel.querySelectorAll('.subtabbtn[data-subtab]'));
+    const subBtns = Array.from(tplPanel.querySelectorAll(".subtabbtn[data-subtab]"));
     const subPanels = Array.from(tplPanel.querySelectorAll(".subpanel"));
 
     function activateSubtab(id) {
-      subBtns.forEach(b => b.classList.remove("active"));
-      subPanels.forEach(p => p.classList.remove("active"));
-      const btn = subBtns.find(b => b.dataset.subtab === id);
+      subBtns.forEach((b) => b.classList.remove("active"));
+      subPanels.forEach((p) => p.classList.remove("active"));
+      const btn = subBtns.find((b) => b.dataset.subtab === id);
       const panel = document.getElementById(id);
       if (btn) btn.classList.add("active");
       if (panel) panel.classList.add("active");
     }
 
-    subBtns.forEach(b => {
-      b.addEventListener("click", () => activateSubtab(b.dataset.subtab));
-    });
+    subBtns.forEach((b) => b.addEventListener("click", () => activateSubtab(b.dataset.subtab)));
 
     // ---------- HOOKS ----------
     const parListEl = document.getElementById("paragraphList");
@@ -33,6 +31,9 @@
     const btnSave2 = document.getElementById("btnTplSave2");
     const dirtyHint1 = document.getElementById("tplDirty1");
     const dirtyHint2 = document.getElementById("tplDirty2");
+
+    const parSearchEl = document.getElementById("tplParSearch"); // optional
+    const repSearchEl = document.getElementById("tplRepSearch"); // optional
 
     if (!parListEl || !repListEl) return;
 
@@ -50,7 +51,7 @@
     const P = new Map();
     const R = new Map();
 
-    (store.paragraphs || []).forEach(p => {
+    (store.paragraphs || []).forEach((p) => {
       const id = String(p.id || "").trim();
       if (!id) return;
       P.set(id, {
@@ -61,14 +62,14 @@
       });
     });
 
-    (store.reports || []).forEach(r => {
+    (store.reports || []).forEach((r) => {
       const id = String(r.id || "").trim();
       if (!id) return;
       R.set(id, {
         id,
         title: String(r.title || id).trim(),
         paragraph_ids: Array.isArray(r.paragraph_ids)
-          ? r.paragraph_ids.map(x => String(x).trim()).filter(Boolean)
+          ? r.paragraph_ids.map((x) => String(x).trim()).filter(Boolean)
           : [],
       });
     });
@@ -76,12 +77,26 @@
     // ---------- DIRTY ----------
     let dirty = false;
     function setDirty(on) {
-      dirty = on;
-      if (dirtyHint1) dirtyHint1.style.display = on ? "inline" : "none";
-      if (dirtyHint2) dirtyHint2.style.display = on ? "inline" : "none";
+      dirty = !!on;
+      if (dirtyHint1) dirtyHint1.style.display = dirty ? "inline" : "none";
+      if (dirtyHint2) dirtyHint2.style.display = dirty ? "inline" : "none";
     }
 
-    // ---------- RENDER HELPERS ----------
+    // ---------- UI STATE ----------
+    const ui = {
+      openParId: null,     // string | null
+      openRepId: null,     // string | null
+      newParOpen: false,
+      newRepOpen: false,
+      draftPar: { id: "", label: "", description: "", text: "" },
+      draftRep: { id: "", title: "", paragraph_ids: [] },
+      filterPar: "",
+      filterRep: "",
+    };
+
+    // ---------- HELPERS ----------
+    const ID_RE = /^[a-zA-Z0-9_]+$/;
+
     function esc(s) {
       return String(s || "")
         .replaceAll("&", "&amp;")
@@ -91,88 +106,233 @@
 
     function oneLinePreview(text) {
       const t = String(text || "").replaceAll("\n", " ").trim();
-      return t.length <= 140 ? t : (t.slice(0, 140) + "…");
+      return t.length <= 140 ? t : t.slice(0, 140) + "…";
+    }
+
+    function closestItem(el) {
+      return el?.closest?.(".tplItem");
+    }
+
+    function setItemError(itemEl, msg) {
+      const box = itemEl?.querySelector?.("[data-err]") || null;
+      if (!box) return;
+      if (!msg) {
+        box.style.display = "none";
+        box.textContent = "";
+      } else {
+        box.style.display = "block";
+        box.textContent = String(msg);
+      }
+    }
+
+    function readFields(itemEl, fields) {
+      const out = {};
+      for (const f of fields) {
+        const el = itemEl.querySelector(`[data-field="${f}"]`);
+        out[f] = el && "value" in el ? String(el.value || "").trim() : "";
+      }
+      return out;
+    }
+
+    function validateId(id) {
+      if (!id) return "ID jest wymagane.";
+      if (!ID_RE.test(id)) return "ID może mieć tylko litery/cyfry/_ (bez spacji).";
+      return "";
+    }
+
+    function pillHtml(pid, rid) {
+      return `
+        <span class="pillBtn" draggable="true" data-rid="${esc(rid)}" data-pid="${esc(pid)}" title="Przeciągnij by zmienić kolejność">
+          <span>${esc(pid)}</span>
+          <span class="pillX" data-act="rep-rmpid" data-rid="${esc(rid)}" data-pid="${esc(pid)}" title="Usuń">×</span>
+        </span>
+      `;
+    }
+
+    // ---------- RENDER: Paragraph ----------
+    function paragraphCardHtml(p, { editing = false, isNew = false } = {}) {
+      const pid = p?.id || "";
+      const label = p?.label || "";
+      const desc = p?.description || "";
+      const text = p?.text || "";
+
+      const keyAttr = isNew ? `data-new="1"` : `data-pid="${esc(pid)}"`;
+      const editClass = editing ? "1" : "0";
+
+      return `
+        <div class="tplItem" ${keyAttr} data-editing="${editClass}">
+          <div class="tplRow">
+            <div class="tplMeta">
+              <div class="tplTitleLine">
+                <span class="tplLabel">${esc(label || "(bez nazwy)")}</span>
+                <span class="muted">(${esc(pid || "—")})</span>
+                ${desc ? `<span class="muted">— ${esc(desc)}</span>` : ``}
+              </div>
+              <div class="tplPreview">${esc(oneLinePreview(text))}</div>
+            </div>
+
+            <div class="tplActions">
+              ${isNew ? "" : `<button type="button" data-act="par-toggle">${editing ? "Zwiń" : "Edytuj"}</button>`}
+              <button type="button" data-act="par-del">${isNew ? "Usuń szkic" : "Usuń"}</button>
+            </div>
+          </div>
+
+          <div class="tplEditor" style="display:${editing ? "block" : "none"};">
+            <div class="tplEditorGrid">
+              <div>
+                <label class="muted">ID</label>
+                <input type="text" data-field="id" value="${esc(pid)}" placeholder="np. lv_dims" />
+              </div>
+              <div>
+                <label class="muted">Nazwa (label)</label>
+                <input type="text" data-field="label" value="${esc(label)}" placeholder="np. LV (LVEDD/LVST/LVPWT)" />
+              </div>
+              <div>
+                <label class="muted">Opis (description)</label>
+                <input type="text" data-field="description" value="${esc(desc)}" placeholder="" />
+              </div>
+            </div>
+
+            <div class="tplEditorText">
+              <label class="muted">Tekst</label>
+              <textarea data-field="text" class="tplTextArea" placeholder="Treść paragrafu...">${esc(text)}</textarea>
+            </div>
+
+            <div class="inlineBtns section" style="margin-top:10px;">
+              <button type="button" class="primaryBtn" data-act="par-save">Zapisz paragraf</button>
+              <button type="button" data-act="par-cancel">Anuluj</button>
+            </div>
+            <div class="muted" data-err style="display:none; margin-top:8px; color:#b00020;"></div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ---------- RENDER: Report ----------
+    function reportCardHtml(r, { editing = false, isNew = false } = {}) {
+      const rid = r?.id || "";
+      const title = r?.title || "";
+      const pids = Array.isArray(r?.paragraph_ids) ? r.paragraph_ids : [];
+
+      const keyAttr = isNew ? `data-new="1"` : `data-rid="${esc(rid)}"`;
+      const editClass = editing ? "1" : "0";
+
+      const options = Array.from(P.keys())
+        .sort()
+        .map((pid) => `<option value="${esc(pid)}">${esc(pid)}</option>`)
+        .join("");
+
+      const pills = pids.map((pid) => pillHtml(pid, rid)).join("");
+
+      return `
+        <div class="tplItem" ${keyAttr} data-editing="${editClass}">
+          <div class="tplRow">
+            <div class="tplMeta">
+              <div class="tplTitleLine">
+                <span class="tplLabel">${esc(title || "(bez tytułu)")}</span>
+                <span class="muted">(${esc(rid || "—")})</span>
+              </div>
+
+              <div class="muted" style="margin-top:6px;">
+                Kolejność: przeciągnij “pill” (prototyp: przenosi na koniec). Kliknij ×, żeby usunąć paragraf z raportu.
+              </div>
+
+              <div class="pills" data-dropzone="1" data-rid="${esc(rid)}">
+                ${pills || `<span class="muted">Brak paragrafów w raporcie.</span>`}
+              </div>
+
+              <div class="addRow">
+                <div style="flex:1;">
+                  <label class="muted">Dodaj paragraf</label>
+                  <select data-addsel="1" data-rid="${esc(rid)}">
+                    <option value="">— wybierz —</option>
+                    ${options}
+                  </select>
+                </div>
+                <button type="button" data-act="rep-addpid" data-rid="${esc(rid)}">Dodaj</button>
+              </div>
+            </div>
+
+            <div class="tplActions">
+              ${isNew ? "" : `<button type="button" data-act="rep-toggle">${editing ? "Zwiń" : "Edytuj"}</button>`}
+              <button type="button" data-act="rep-del">${isNew ? "Usuń szkic" : "Usuń"}</button>
+            </div>
+          </div>
+
+          <div class="tplEditor" style="display:${editing ? "block" : "none"};">
+            <div class="tplEditorGrid" style="grid-template-columns: 220px 1fr;">
+              <div>
+                <label class="muted">ID</label>
+                <input type="text" data-field="id" value="${esc(rid)}" placeholder="np. default_echo" />
+              </div>
+              <div>
+                <label class="muted">Tytuł (title)</label>
+                <input type="text" data-field="title" value="${esc(title)}" placeholder="np. Domyślny (skrót)" />
+              </div>
+            </div>
+
+            <div class="inlineBtns section" style="margin-top:10px;">
+              <button type="button" class="primaryBtn" data-act="rep-save">Zapisz raport</button>
+              <button type="button" data-act="rep-cancel">Anuluj</button>
+            </div>
+            <div class="muted" data-err style="display:none; margin-top:8px; color:#b00020;"></div>
+          </div>
+        </div>
+      `;
     }
 
     function renderParagraphs() {
       const ids = Array.from(P.keys()).sort();
-      const html = ids.map(id => {
-        const p = P.get(id);
-        return `
-          <div class="card section" data-pid="${esc(id)}" style="background:#fff;">
-            <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start;">
-              <div style="flex:1; min-width:0;">
-                <div style="display:flex; gap:10px; align-items:baseline; flex-wrap:wrap;">
-                  <strong>${esc(p.label)}</strong>
-                  <span class="muted">(${esc(p.id)})</span>
-                  ${p.description ? `<span class="muted">— ${esc(p.description)}</span>` : ``}
-                </div>
-                <div style="margin-top:8px; padding:10px 12px; border:1px solid #eee; border-radius:12px; background:#f7f7f7; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px;">
-                  ${esc(oneLinePreview(p.text))}
-                </div>
-              </div>
-              <div class="inlineBtns">
-                <button type="button" data-act="par-edit" data-pid="${esc(id)}">Edytuj</button>
-                <button type="button" data-act="par-del" data-pid="${esc(id)}">Usuń</button>
-              </div>
-            </div>
-          </div>
-        `;
-      }).join("");
 
-      parListEl.innerHTML = html || `<div class="muted">Brak paragrafów.</div>`;
+      const filter = (ui.filterPar || "").toLowerCase().trim();
+      const list = filter
+        ? ids.filter((id) => {
+            const p = P.get(id);
+            const hay = `${p.id} ${p.label} ${p.description} ${p.text}`.toLowerCase();
+            return hay.includes(filter);
+          })
+        : ids;
+
+      const htmlParts = [];
+
+      if (ui.newParOpen) {
+        htmlParts.push(paragraphCardHtml(ui.draftPar, { editing: true, isNew: true }));
+      }
+
+      for (const id of list) {
+        const p = P.get(id);
+        const editing = ui.openParId === id && !ui.newParOpen;
+        htmlParts.push(paragraphCardHtml(p, { editing, isNew: false }));
+      }
+
+      parListEl.innerHTML = htmlParts.join("") || `<div class="muted">Brak paragrafów.</div>`;
     }
 
     function renderReports() {
       const ids = Array.from(R.keys()).sort();
-      const options = Array.from(P.keys()).sort()
-        .map(pid => `<option value="${esc(pid)}">${esc(pid)}</option>`)
-        .join("");
 
-      const html = ids.map(id => {
+      const filter = (ui.filterRep || "").toLowerCase().trim();
+      const list = filter
+        ? ids.filter((id) => {
+            const r = R.get(id);
+            const hay = `${r.id} ${r.title} ${(r.paragraph_ids || []).join(" ")}`.toLowerCase();
+            return hay.includes(filter);
+          })
+        : ids;
+
+      const htmlParts = [];
+
+      if (ui.newRepOpen) {
+        htmlParts.push(reportCardHtml(ui.draftRep, { editing: true, isNew: true }));
+      }
+
+      for (const id of list) {
         const r = R.get(id);
-        const pills = r.paragraph_ids.map(pid =>
-          `<span class="pill" draggable="true" data-rid="${esc(id)}" data-pid="${esc(pid)}" style="cursor:grab;">${esc(pid)}</span>`
-        ).join(" ");
+        const editing = ui.openRepId === id && !ui.newRepOpen;
+        htmlParts.push(reportCardHtml(r, { editing, isNew: false }));
+      }
 
-        return `
-          <div class="card section" data-rid="${esc(id)}" style="background:#fff;">
-            <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start;">
-              <div style="flex:1; min-width:0;">
-                <div style="display:flex; gap:10px; align-items:baseline; flex-wrap:wrap;">
-                  <strong>${esc(r.title)}</strong>
-                  <span class="muted">(${esc(r.id)})</span>
-                </div>
-
-                <div class="muted" style="margin-top:6px;">Kolejność: przeciągnij “pill” (prototyp: przenosi na koniec).</div>
-
-                <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap; padding:10px; border:1px solid #eee; border-radius:12px; background:#fafafa;"
-                     data-dropzone="1" data-rid="${esc(id)}">
-                  ${pills || `<span class="muted">Brak paragrafów w raporcie.</span>`}
-                </div>
-
-                <div style="margin-top:10px; display:flex; gap:8px; align-items:flex-end;">
-                  <div style="flex:1;">
-                    <label class="muted" style="margin:0 0 6px 0;">Dodaj paragraf</label>
-                    <select data-addsel="1" data-rid="${esc(id)}">
-                      <option value="">— wybierz —</option>
-                      ${options}
-                    </select>
-                  </div>
-                  <button type="button" data-act="rep-addpid" data-rid="${esc(id)}">Dodaj</button>
-                </div>
-              </div>
-
-              <div class="inlineBtns">
-                <button type="button" data-act="rep-edit" data-rid="${esc(id)}">Edytuj</button>
-                <button type="button" data-act="rep-del" data-rid="${esc(id)}">Usuń</button>
-              </div>
-            </div>
-          </div>
-        `;
-      }).join("");
-
-      repListEl.innerHTML = html || `<div class="muted">Brak raportów.</div>`;
+      repListEl.innerHTML = htmlParts.join("") || `<div class="muted">Brak raportów.</div>`;
     }
 
     function refreshAll() {
@@ -180,156 +340,303 @@
       renderReports();
     }
 
-    // ---------- EDIT ACTIONS (prompt-only prototype) ----------
-    function editParagraph(pid) {
-      const p = P.get(pid);
-      if (!p) return;
+    // ---------- ACTIONS: Paragraph ----------
+    function openParagraphEditor(pid) {
+      ui.newParOpen = false;
+      ui.openParId = pid;
+      renderParagraphs();
+    }
 
-      const idNew = prompt("ID paragrafu:", p.id);
-      if (!idNew) return;
+    function openNewParagraphEditor() {
+      ui.openParId = null;
+      ui.newParOpen = true;
+      ui.draftPar = { id: "", label: "", description: "", text: "" };
+      renderParagraphs();
+    }
 
-      const labelNew = prompt("Nazwa (label):", p.label) ?? p.label;
-      const descNew  = prompt("Opis (description):", p.description) ?? p.description;
-      const textNew  = prompt("Treść (text):", p.text);
-      if (textNew === null) return;
+    function cancelParagraphEdit() {
+      ui.openParId = null;
+      ui.newParOpen = false;
+      renderParagraphs();
+    }
 
-      const idNorm = String(idNew).trim();
-      if (!idNorm) return;
-
-      if (idNorm !== pid && P.has(idNorm)) {
-        alert("Taki ID już istnieje.");
-        return;
-      }
-
+    function deleteParagraph(pid) {
+      if (!confirm(`Usunąć paragraf ${pid}? (Usunie też referencje w raportach)`)) return;
       P.delete(pid);
-      P.set(idNorm, {
-        id: idNorm,
-        label: String(labelNew || idNorm).trim(),
-        description: String(descNew || "").trim(),
-        text: String(textNew || "").trim(),
+      R.forEach((r) => {
+        r.paragraph_ids = r.paragraph_ids.filter((x) => x !== pid);
       });
-
-      // update refs
-      R.forEach(r => {
-        r.paragraph_ids = r.paragraph_ids.map(x => (x === pid ? idNorm : x));
-      });
-
       setDirty(true);
       refreshAll();
     }
 
-    function editReport(rid) {
-      const r = R.get(rid);
-      if (!r) return;
+    function saveParagraphFromItem(itemEl) {
+      const isNew = itemEl.dataset.new === "1";
+      const pidOld = isNew ? "" : String(itemEl.dataset.pid || "").trim();
 
-      const idNew = prompt("ID raportu:", r.id);
-      if (!idNew) return;
+      const { id, label, description, text } = readFields(itemEl, ["id", "label", "description", "text"]);
 
-      const titleNew = prompt("Tytuł:", r.title) ?? r.title;
+      const errId = validateId(id);
+      if (errId) return setItemError(itemEl, errId);
+      if (!text) return setItemError(itemEl, "Tekst paragrafu nie może być pusty.");
 
-      const idNorm = String(idNew).trim();
-      if (!idNorm) return;
+      if (id !== pidOld && P.has(id)) return setItemError(itemEl, "Taki ID paragrafu już istnieje.");
 
-      if (idNorm !== rid && R.has(idNorm)) {
-        alert("Taki ID raportu już istnieje.");
-        return;
+      // rename (if existing)
+      if (!isNew && pidOld && pidOld !== id) {
+        P.delete(pidOld);
+        R.forEach((r) => {
+          r.paragraph_ids = r.paragraph_ids.map((x) => (x === pidOld ? id : x));
+        });
       }
-
-      R.delete(rid);
-      R.set(idNorm, {
-        id: idNorm,
-        title: String(titleNew || idNorm).trim(),
-        paragraph_ids: Array.from(r.paragraph_ids),
-      });
-
-      setDirty(true);
-      refreshAll();
-    }
-
-    function addParagraph() {
-      const pid = prompt("Nowy paragraf ID:", "");
-      if (!pid) return;
-      const id = String(pid).trim();
-      if (!id) return;
-      if (P.has(id)) { alert("Taki ID już istnieje."); return; }
-
-      const label = prompt("Nazwa (label):", id) ?? id;
-      const desc  = prompt("Opis (description):", "") ?? "";
-      const text  = prompt("Treść (text):", "");
-      if (text === null) return;
 
       P.set(id, {
         id,
-        label: String(label || id).trim(),
-        description: String(desc || "").trim(),
-        text: String(text || "").trim(),
+        label: label || id,
+        description: description || "",
+        text,
       });
 
+      setItemError(itemEl, "");
       setDirty(true);
+
+      // close editor
+      ui.openParId = null;
+      ui.newParOpen = false;
+
+      // reports depend on paragraphs list + renamed ids
       refreshAll();
     }
 
-    function addReport() {
-      const rid = prompt("Nowy raport ID:", "");
-      if (!rid) return;
-      const id = String(rid).trim();
-      if (!id) return;
-      if (R.has(id)) { alert("Taki ID już istnieje."); return; }
-
-      const title = prompt("Tytuł:", id) ?? id;
-      R.set(id, { id, title: String(title || id).trim(), paragraph_ids: [] });
-
-      setDirty(true);
-      refreshAll();
+    // ---------- ACTIONS: Report ----------
+    function openReportEditor(rid) {
+      ui.newRepOpen = false;
+      ui.openRepId = rid;
+      renderReports();
     }
 
-    // ---------- CLICK DISPATCH ----------
-    document.addEventListener("click", (e) => {
-      const btn = e.target?.closest?.("button[data-act]");
+    function openNewReportEditor() {
+      ui.openRepId = null;
+      ui.newRepOpen = true;
+      ui.draftRep = { id: "", title: "", paragraph_ids: [] };
+      renderReports();
+    }
+
+    function cancelReportEdit() {
+      ui.openRepId = null;
+      ui.newRepOpen = false;
+      renderReports();
+    }
+
+    function deleteReport(rid) {
+      if (!confirm(`Usunąć raport ${rid}?`)) return;
+      R.delete(rid);
+      setDirty(true);
+      renderReports();
+    }
+
+    function saveReportFromItem(itemEl) {
+      const isNew = itemEl.dataset.new === "1";
+      const ridOld = isNew ? "" : String(itemEl.dataset.rid || "").trim();
+
+      const { id, title } = readFields(itemEl, ["id", "title"]);
+      const errId = validateId(id);
+      if (errId) return setItemError(itemEl, errId);
+
+      if (id !== ridOld && R.has(id)) return setItemError(itemEl, "Taki ID raportu już istnieje.");
+
+      let paragraph_ids = [];
+      if (!isNew && ridOld) {
+        const r = R.get(ridOld);
+        paragraph_ids = Array.isArray(r?.paragraph_ids) ? Array.from(r.paragraph_ids) : [];
+      } else if (isNew) {
+        paragraph_ids = Array.isArray(ui.draftRep.paragraph_ids) ? Array.from(ui.draftRep.paragraph_ids) : [];
+      }
+
+      if (!isNew && ridOld && ridOld !== id) {
+        R.delete(ridOld);
+      }
+
+      R.set(id, {
+        id,
+        title: title || id,
+        paragraph_ids,
+      });
+
+      setItemError(itemEl, "");
+      setDirty(true);
+
+      ui.openRepId = null;
+      ui.newRepOpen = false;
+
+      renderReports();
+    }
+
+    function addParagraphIdToReport(rid, pid) {
+      if (!rid || !pid) return;
+
+      // when draft report open -> modify draft
+      if (ui.newRepOpen) {
+        ui.draftRep.paragraph_ids = Array.isArray(ui.draftRep.paragraph_ids) ? ui.draftRep.paragraph_ids : [];
+        ui.draftRep.paragraph_ids.push(pid);
+        setDirty(true);
+        renderReports();
+        return;
+      }
+
+      const r = R.get(rid);
+      if (!r) return;
+      r.paragraph_ids.push(pid);
+      setDirty(true);
+      renderReports();
+    }
+
+    function removeParagraphIdFromReport(rid, pid) {
+      if (ui.newRepOpen) {
+        ui.draftRep.paragraph_ids = (ui.draftRep.paragraph_ids || []).filter((x) => x !== pid);
+        setDirty(true);
+        renderReports();
+        return;
+      }
+
+      const r = R.get(rid);
+      if (!r) return;
+      r.paragraph_ids = r.paragraph_ids.filter((x) => x !== pid);
+      setDirty(true);
+      renderReports();
+    }
+
+    // ---------- EVENTS: local delegation (only template panel) ----------
+    tplPanel.addEventListener("click", (e) => {
+      const btn = e.target?.closest?.("[data-act]");
       if (!btn) return;
 
       const act = btn.dataset.act;
+      const item = closestItem(btn);
 
-      if (act === "par-edit") editParagraph(btn.dataset.pid);
+      // Paragraph
+      if (act === "par-toggle") {
+        if (!item) return;
+        const pid = String(item.dataset.pid || "").trim();
+        openParagraphEditor(pid);
+        return;
+      }
+      if (act === "par-save") {
+        if (!item) return;
+        saveParagraphFromItem(item);
+        return;
+      }
+      if (act === "par-cancel") {
+        cancelParagraphEdit();
+        return;
+      }
       if (act === "par-del") {
-        const pid = btn.dataset.pid;
-        if (!confirm(`Usunąć paragraf ${pid}? (Usunie też referencje w raportach)`)) return;
-        P.delete(pid);
-        R.forEach(r => { r.paragraph_ids = r.paragraph_ids.filter(x => x !== pid); });
-        setDirty(true);
-        refreshAll();
+        if (!item) return;
+        if (item.dataset.new === "1") {
+          // drop draft
+          ui.newParOpen = false;
+          ui.draftPar = { id: "", label: "", description: "", text: "" };
+          renderParagraphs();
+          return;
+        }
+        const pid = String(item.dataset.pid || "").trim();
+        deleteParagraph(pid);
+        return;
       }
 
-      if (act === "rep-edit") editReport(btn.dataset.rid);
+      // Report
+      if (act === "rep-toggle") {
+        if (!item) return;
+        const rid = String(item.dataset.rid || "").trim();
+        openReportEditor(rid);
+        return;
+      }
+      if (act === "rep-save") {
+        if (!item) return;
+        saveReportFromItem(item);
+        return;
+      }
+      if (act === "rep-cancel") {
+        cancelReportEdit();
+        return;
+      }
       if (act === "rep-del") {
-        const rid = btn.dataset.rid;
-        if (!confirm(`Usunąć raport ${rid}?`)) return;
-        R.delete(rid);
-        setDirty(true);
-        refreshAll();
+        if (!item) return;
+        if (item.dataset.new === "1") {
+          ui.newRepOpen = false;
+          ui.draftRep = { id: "", title: "", paragraph_ids: [] };
+          renderReports();
+          return;
+        }
+        const rid = String(item.dataset.rid || "").trim();
+        deleteReport(rid);
+        return;
       }
-
       if (act === "rep-addpid") {
-        const rid = btn.dataset.rid;
-        const sel = document.querySelector(`select[data-addsel="1"][data-rid="${CSS.escape(rid)}"]`);
-        const pid = sel?.value || "";
+        const rid = btn.dataset.rid || item?.dataset?.rid || "";
+        if (!rid && !ui.newRepOpen) return;
+
+        const sel = tplPanel.querySelector(`select[data-addsel="1"][data-rid="${CSS.escape(rid)}"]`);
+        const pid = String(sel?.value || "").trim();
         if (!pid) return;
-        const r = R.get(rid);
-        if (!r) return;
-        r.paragraph_ids.push(pid);
+        addParagraphIdToReport(rid, pid);
         if (sel) sel.value = "";
-        setDirty(true);
-        refreshAll();
+        return;
+      }
+      if (act === "rep-rmpid") {
+        const rid = btn.dataset.rid;
+        const pid = btn.dataset.pid;
+        if (!rid || !pid) return;
+        removeParagraphIdFromReport(rid, pid);
+        return;
       }
     });
 
-    btnParAdd?.addEventListener("click", addParagraph);
-    btnRepAdd?.addEventListener("click", addReport);
+    // ---------- ADD BUTTONS ----------
+    btnParAdd?.addEventListener("click", () => {
+      activateSubtab("sub-paragraphs");
+      openNewParagraphEditor();
+    });
 
-    // ---------- SAVE ----------
+    btnRepAdd?.addEventListener("click", () => {
+      activateSubtab("sub-reports");
+      openNewReportEditor();
+    });
+
+    // ---------- SEARCH (optional) ----------
+    parSearchEl?.addEventListener("input", () => {
+      ui.filterPar = String(parSearchEl.value || "");
+      renderParagraphs();
+    });
+
+    repSearchEl?.addEventListener("input", () => {
+      ui.filterRep = String(repSearchEl.value || "");
+      renderReports();
+    });
+
+    // ---------- SAVE ALL ----------
     async function saveAll() {
+      // refuse if user has open draft editors with invalid/empty required data?
+      // (we keep it permissive; you can still save global state even if draft exists, but it’s confusing)
+      if (ui.newParOpen || ui.newRepOpen) {
+        if (!confirm("Masz otwarty szkic (nowy paragraf/raport). Zapiszę tylko istniejące dane. Kontynuować?")) {
+          return;
+        }
+      }
+
       const paragraphs = Array.from(P.values()).sort((a, b) => a.id.localeCompare(b.id));
       const reports = Array.from(R.values()).sort((a, b) => a.id.localeCompare(b.id));
+
+      // quick client-side sanity: report refs exist
+      const parSet = new Set(paragraphs.map((p) => p.id));
+      for (const r of reports) {
+        for (const pid of r.paragraph_ids) {
+          if (!parSet.has(pid)) {
+            alert(`Błąd: raport ${r.id} referencjonuje brakujący paragraf: ${pid}`);
+            return;
+          }
+        }
+      }
 
       const resp = await fetch("/api/templates/save", {
         method: "POST",
@@ -354,20 +661,20 @@
     // ---------- DRAG & DROP (prototype: move to end) ----------
     let dragPid = null;
 
-    document.addEventListener("dragstart", (e) => {
-      const pill = e.target?.closest?.(".pill[data-pid][data-rid]");
+    tplPanel.addEventListener("dragstart", (e) => {
+      const pill = e.target?.closest?.(".pillBtn[data-pid][data-rid]");
       if (!pill) return;
       dragPid = pill.dataset.pid;
       e.dataTransfer?.setData("text/plain", dragPid || "");
     });
 
-    document.addEventListener("dragover", (e) => {
+    tplPanel.addEventListener("dragover", (e) => {
       const dz = e.target?.closest?.('[data-dropzone="1"][data-rid]');
       if (!dz) return;
       e.preventDefault();
     });
 
-    document.addEventListener("drop", (e) => {
+    tplPanel.addEventListener("drop", (e) => {
       const dz = e.target?.closest?.('[data-dropzone="1"][data-rid]');
       if (!dz) return;
       e.preventDefault();
@@ -377,17 +684,26 @@
       dragPid = null;
       if (!rid || !pid) return;
 
+      // draft report?
+      if (ui.newRepOpen) {
+        ui.draftRep.paragraph_ids = (ui.draftRep.paragraph_ids || []).filter((x) => x !== pid);
+        ui.draftRep.paragraph_ids.push(pid);
+        setDirty(true);
+        renderReports();
+        return;
+      }
+
       const r = R.get(rid);
       if (!r) return;
 
-      r.paragraph_ids = r.paragraph_ids.filter(x => x !== pid);
+      r.paragraph_ids = r.paragraph_ids.filter((x) => x !== pid);
       r.paragraph_ids.push(pid);
 
       setDirty(true);
-      refreshAll();
+      renderReports();
     });
 
-    // init
+    // ---------- INIT ----------
     activateSubtab("sub-paragraphs");
     refreshAll();
   };

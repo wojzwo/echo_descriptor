@@ -37,31 +37,55 @@ class ReportTemplate:
         return "\n\n".join(rendered)
 
 
-def _templates_path() -> str:
+def _templates_relpath() -> str:
+    # relative path inside config tree
     return "reports/templates.yaml"
+
+
+def templates_path():
+    """
+    Repo-local config path (bootstrapped from defaults if missing).
+    """
+    return ensure_bootstrap_file(_templates_relpath())
 
 
 def get_report_templates() -> Tuple[Dict[str, ParagraphTemplate], Dict[str, ReportTemplate]]:
     """
-    Loads templates from LOCAL config:
-      <repo>/config/reports/templates.yaml
-    Bootstrapped from packaged defaults:
-      echo_desc/config_defaults/reports/templates.yaml
+    Loads templates YAML (repo-local, bootstrapped from defaults):
+
+      paragraphs:
+        - id: ...
+          label: ...
+          description: ...
+          text: ...
+
+      reports:
+        - id: ...
+          title: ...
+          paragraph_ids: [par1, par2, ...]
 
     Returns:
       (paragraphs_by_id, reports_by_id)
+
+    NOTE (prototype-friendly):
+      - empty paragraphs/reports are allowed (editor can start from blank)
+      - invalid YAML structure -> ValueError
     """
-    path = ensure_bootstrap_file(_templates_path())
+    path = templates_path()
     doc = load_yaml(path)
+
+    if doc is None:
+        # empty file -> treat as blank structure
+        return {}, {}
 
     if not isinstance(doc, dict):
         raise ValueError(f"Invalid templates YAML (root must be dict): {path}")
 
-    par_list = doc.get("paragraphs")
-    rep_list = doc.get("reports")
+    par_list = doc.get("paragraphs", [])
+    rep_list = doc.get("reports", [])
 
     if not isinstance(par_list, list) or not isinstance(rep_list, list):
-        raise ValueError(f"Invalid templates YAML (missing paragraphs/reports lists): {path}")
+        raise ValueError(f"Invalid templates YAML (paragraphs/reports must be lists): {path}")
 
     paragraphs: Dict[str, ParagraphTemplate] = {}
     for it in par_list:
@@ -70,12 +94,19 @@ def get_report_templates() -> Tuple[Dict[str, ParagraphTemplate], Dict[str, Repo
         pid = str(it.get("id", "")).strip()
         if not pid:
             continue
-        label = str(it.get("label", pid)).strip()
+
+        label = str(it.get("label", pid)).strip() or pid
         text = str(it.get("text", "")).strip()
         desc = str(it.get("description", "") or "").strip()
-        if not text:
-            continue
-        paragraphs[pid] = ParagraphTemplate(id=pid, label=label, text=text, description=desc)
+
+        # allow creating "stub" paragraph in editor (text can be empty), but
+        # runtime rendering will show empty -> blank paragraph (fine)
+        paragraphs[pid] = ParagraphTemplate(
+            id=pid,
+            label=label,
+            text=text,
+            description=desc,
+        )
 
     reports: Dict[str, ReportTemplate] = {}
     for it in rep_list:
@@ -84,17 +115,14 @@ def get_report_templates() -> Tuple[Dict[str, ParagraphTemplate], Dict[str, Repo
         rid = str(it.get("id", "")).strip()
         if not rid:
             continue
-        title = str(it.get("title", rid)).strip()
+        title = str(it.get("title", rid)).strip() or rid
+
         pids = it.get("paragraph_ids", [])
         if not isinstance(pids, list):
-            continue
+            pids = []
+
         pids_norm = [str(x).strip() for x in pids if str(x).strip()]
         reports[rid] = ReportTemplate(id=rid, title=title, paragraph_ids=pids_norm)
-
-    if not paragraphs:
-        raise ValueError(f"No paragraphs loaded from {path}")
-    if not reports:
-        raise ValueError(f"No reports loaded from {path}")
 
     return paragraphs, reports
 
@@ -105,22 +133,23 @@ def save_report_templates(
 ) -> None:
     """
     Save into repo-local: ./config/reports/templates.yaml
+    (path is obtained via ensure_bootstrap_file so file exists)
     """
-    path = ensure_bootstrap_file(_templates_path())  # ensures file exists; we overwrite anyway
+    path = templates_path()
 
-    par_out = []
+    par_out: List[Dict[str, Any]] = []
     for pid in sorted(paragraphs.keys()):
         p = paragraphs[pid]
         par_out.append(
             {
                 "id": p.id,
                 "label": p.label,
-                "description": p.description,
-                "text": p.text,
+                "description": p.description or "",
+                "text": p.text or "",
             }
         )
 
-    rep_out = []
+    rep_out: List[Dict[str, Any]] = []
     for rid in sorted(reports.keys()):
         r = reports[rid]
         rep_out.append(
@@ -140,7 +169,7 @@ def filter_report(
     selected_paragraph_ids: Iterable[str],
 ) -> ReportTemplate:
     """
-    Optional: runtime filter zachowujący kolejność z raportu.
+    Runtime filter zachowujący kolejność z raportu.
     """
     sel = set(selected_paragraph_ids)
     out = [pid for pid in base.paragraph_ids if pid in sel]

@@ -2,18 +2,25 @@
 (function () {
   "use strict";
 
+  const MAIN_TAB_IDS = ["tab-params", "tab-template", "tab-settings"];
+
   function activateTab(tabId) {
+    if (!MAIN_TAB_IDS.includes(tabId)) tabId = "tab-params";
+
     // buttons
     window.$$(".tabbtn[data-tab]").forEach(b => b.classList.remove("active"));
     const btn = window.$(`.tabbtn[data-tab="${CSS.escape(tabId)}"]`);
     if (btn) btn.classList.add("active");
 
-    // panels
-    window.$$("section.panel").forEach(p => p.classList.remove("active"));
+    // panels (TYLKO główne)
+    MAIN_TAB_IDS.forEach(id => {
+      const p = document.getElementById(id);
+      if (p) p.classList.remove("active");
+    });
     const panel = document.getElementById(tabId);
     if (panel) panel.classList.add("active");
 
-    // (opcjonalnie) utrzymuj stan w URL
+    // URL state
     const map = {
       "tab-params": "params",
       "tab-template": "template",
@@ -35,11 +42,10 @@
       });
     });
 
-    // start tab from URL (jeśli backend już wspiera active_tab, to to i tak zgra)
+    // start tab from URL
     const url = new URL(window.location.href);
     const q = (url.searchParams.get("tab") || "").toLowerCase();
     const map = { params: "tab-params", template: "tab-template", settings: "tab-settings" };
-    const start = map[q] || "tab-params";
-    activateTab(start);
+    activateTab(map[q] || "tab-params");
   };
 })();

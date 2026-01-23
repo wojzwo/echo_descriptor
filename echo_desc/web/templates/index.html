@@ -143,42 +143,75 @@
     <!-- TAB: TEMPLATE (EDITOR) -->
     <section id="tab-template" class="panel {% if active_tab == 'template' %}active{% endif %}">
       <h3>Template Editor</h3>
-      <div class="muted">Edytujesz bazę paragrafów i raporty składające się z paragrafów (kolejność ma znaczenie).</div>
+      <div class="muted">
+        Edytujesz bazę paragrafów oraz raporty (kolejność paragrafów ma znaczenie).
+      </div>
 
       <!-- sub-tabs -->
-      <div class="subtabs section">
-        <button type="button" class="subtabbtn active" data-subtab="sub-paragraphs">Paragraphs</button>
-        <button type="button" class="subtabbtn" data-subtab="sub-reports">Reports</button>
+      <div class="subtabs section" role="tablist" aria-label="Template editor">
+        <button
+          type="button"
+          class="subtabbtn active"
+          data-subtab="sub-paragraphs"
+          role="tab"
+          aria-controls="sub-paragraphs"
+          aria-selected="true">
+          Paragraphs
+        </button>
+
+        <button
+          type="button"
+          class="subtabbtn"
+          data-subtab="sub-reports"
+          role="tab"
+          aria-controls="sub-reports"
+          aria-selected="false">
+          Reports
+        </button>
       </div>
 
       <!-- PARAGRAPHS -->
-      <div id="sub-paragraphs" class="subpanel active">
-        <div class="section inlineBtns">
+      <div id="sub-paragraphs" class="subpanel active" role="tabpanel" aria-label="Paragraphs">
+        <div class="section inlineBtns" style="align-items:center;">
           <button type="button" id="btnParAdd">+ Nowy paragraf</button>
           <button type="button" class="primaryBtn" id="btnTplSave1">Zapisz do YAML</button>
           <span class="muted" id="tplDirty1" style="display:none;">Masz niezapisane zmiany.</span>
+
+          <div style="flex:1;"></div>
+
+          <div style="min-width:260px;">
+            <input type="search" id="tplParSearch" placeholder="Szukaj paragrafów…" />
+          </div>
         </div>
 
         <div class="card section">
+          <!-- templates_ui.js renderuje tutaj .tplItem + .tplEditor -->
           <div class="tplList" id="paragraphList"></div>
         </div>
       </div>
 
       <!-- REPORTS -->
-      <div id="sub-reports" class="subpanel">
-        <div class="section inlineBtns">
+      <div id="sub-reports" class="subpanel" role="tabpanel" aria-label="Reports">
+        <div class="section inlineBtns" style="align-items:center;">
           <button type="button" id="btnRepAdd">+ Nowy raport</button>
           <button type="button" class="primaryBtn" id="btnTplSave2">Zapisz do YAML</button>
           <span class="muted" id="tplDirty2" style="display:none;">Masz niezapisane zmiany.</span>
+
+          <div style="flex:1;"></div>
+
+          <div style="min-width:260px;">
+            <input type="search" id="tplRepSearch" placeholder="Szukaj raportów…" />
+          </div>
         </div>
 
         <div class="card section">
+          <!-- templates_ui.js renderuje tutaj .tplItem + .tplEditor -->
           <div class="tplList" id="reportList"></div>
         </div>
       </div>
 
       <div class="section muted">
-        Backend zapisuje do: <span class="pill">./config/reports/templates_v2.yaml</span>
+        Backend zapisuje do: <span class="pill">./config/reports/templates.yaml</span>
       </div>
     </section>
   </form>
@@ -241,12 +274,11 @@
   </section>
 
   <!-- preload templates for editor -->
-  <script id="tplData" type="application/json">{{ templates_v2_json | safe }}</script>
+  <script id="tplData" type="application/json">{{ templates_json | safe }}</script>
 
   <script src="/static/app.js" defer></script>
   <script src="/static/tabs.js" defer></script>
   <script src="/static/settings_ui.js" defer></script>
   <script src="/static/templates_ui.js" defer></script>
-  
 </body>
 </html>

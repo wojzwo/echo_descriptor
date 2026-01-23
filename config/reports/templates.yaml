@@ -1,41 +1,49 @@
-# echo_desc/config_defaults/reports/templates.yaml
 paragraphs:
-  - id: norms
-    label: "Normy / źródło"
-    description: ""
-    text: "W badaniu zastosowano normy wg Pettersen MD i wsp., J Am Soc Echocardiogr. 2008 21(8):922/34 (Z-scores, Detroit Data)."
-
-  - id: bsa
-    label: "BSA"
-    description: ""
-    text: "BSA= {BSA_m2:.2f} m2."
-
-  - id: lv_dims
-    label: "LV (LVEDD/LVST/LVPWT)"
-    description: ""
-    text: "Wymiar poprzeczny i grubość mięśnia lewej komory w normie: LVEDD= {LVEDD:.2f} (z= {LVEDD_z:.2f}), LVST= {LVST:.2f} (z= {LVST_z:.2f}), LVPWT= {LVPWT:.2f} (z= {LVPWT_z:.2f})."
-
-  - id: aorta
-    label: "Aorta (ANN/ROOT/STJ/AAO)"
-    description: ""
-    text: "Aorta: pierścień {ANN:.2f} (z= {ANN_z:.2f}), opuszka {ROOT:.2f} (z= {ROOT_z:.2f}), STJ {STJ:.2f} (z= {STJ_z:.2f}), aorta wstępująca {AAO:.2f} (z= {AAO_z:.2f})."
-
-  - id: pa
-    label: "T. płucna (MPA/RPA/LPA)"
-    description: ""
-    text: "Tętnica płucna: MPA= {MPA:.2f} (z= {MPA_z:.2f}), RPA= {RPA:.2f} (z= {RPA_z:.2f}), LPA= {LPA:.2f} (z= {LPA_z:.2f})."
-
-  - id: conclusion
-    label: "Wnioski"
-    description: ""
-    text: "Wnioski: Bez cech ewidentnej wady. IT i IP w granicach fizjologii. Struna ścięgnista w LV."
-
-
+- id: aorta
+  label: Aorta (ANN/ROOT/STJ/AAO)22
+  description: ''
+  text: 'Aorta: pierśxDcień {ANN:.2f} (z= {ANN_z:.2f}), opuszka {ROOT:.2f} (z= {ROOT_z:.2f}),
+    STJ {STJ:.2f} (z= {STJ_z:.2f}), aorta wstępująca {AAO:.2f} (z= {AAO_z:.2f}).'
+- id: bsa
+  label: BSA
+  description: ''
+  text: BSA= {BSA_m2:.2f} m2.
+- id: conclusion
+  label: Wnioski
+  description: ''
+  text: 'Wnioski: Bez cech ewidentnej wady. IT i IP w granicach fizjologii. Struna
+    ścięgnista w LV.'
+- id: lv_dims
+  label: LV (LVEDD/LVST/LVPWT)
+  description: ''
+  text: 'Wymiar poprzeczny i grubość mięśnia lewej komory w normie: LVEDD= {LVEDD:.2f}
+    (z= {LVEDD_z:.2f}), LVST= {LVST:.2f} (z= {LVST_z:.2f}), LVPWT= {LVPWT:.2f} (z=
+    {LVPWT_z:.2f}).'
+- id: norms
+  label: Normy / źródło
+  description: ''
+  text: W badaniu zastosowano normy wg Pettersen MD i wsp., J Am Soc Echocardiogr.
+    2008 21(8):922/34 (Z-scores, Detroit Data).
+- id: pa
+  label: T. płucna (MPA/RPA/LPA)
+  description: ''
+  text: 'Tętnica płucna: MPA= {MPA:.2f} (z= {MPA_z:.2f}), RPA= {RPA:.2f} (z= {RPA_z:.2f}),
+    LPA= {LPA:.2f} (z= {LPA_z:.2f}).'
 reports:
-  - id: default_echo
-    title: "Domyślny (skrót)"
-    paragraph_ids: [norms, bsa, lv_dims, aorta, pa, conclusion]
-
-  - id: rep2_test
-    title: "Domyślny (skrót)"
-    paragraph_ids: [lv_dims, norms, pa, conclusion]
+- id: default_echo
+  title: Domyślny (skrót)
+  paragraph_ids:
+  - bsa
+  - lv_dims
+  - aorta
+  - pa
+  - conclusion
+  - norms
+- id: rep2_test
+  title: Domyślny (skrót)
+  paragraph_ids:
+  - lv_dims
+  - pa
+  - conclusion
+  - norms
+  - norms
